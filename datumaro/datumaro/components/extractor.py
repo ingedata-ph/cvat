@@ -91,7 +91,7 @@ class LabelCategories(Categories):
         self._indices = indices
 
     def add(self, name, parent=None, attributes=None):
-        assert name not in self._indices
+        assert name not in self._indices, name
         if attributes is None:
             attributes = set()
         else:
@@ -178,13 +178,13 @@ class Mask(Annotation):
 
         if label is not None:
             label = int(label)
-        self._label = label
+        self.label = label
 
         if z_order is None:
             z_order = 0
         else:
             z_order = int(z_order)
-        self._z_order = z_order
+        self.z_order = z_order
     # pylint: enable=redefined-builtin
 
     @property
@@ -192,14 +192,6 @@ class Mask(Annotation):
         if callable(self._image):
             return self._image()
         return self._image
-
-    @property
-    def label(self):
-        return self._label
-
-    @property
-    def z_order(self):
-        return self._z_order
 
     def as_class_mask(self, label_id=None):
         if label_id is None:
@@ -237,7 +229,7 @@ class RleMask(Mask):
         super().__init__(image=lazy_decode, label=label, z_order=z_order,
             id=id, attributes=attributes, group=group)
 
-        self._rle = rle
+        self.rle = rle
     # pylint: enable=redefined-builtin
 
     @staticmethod
@@ -252,10 +244,6 @@ class RleMask(Mask):
     def get_bbox(self):
         from pycocotools import mask as mask_utils
         return mask_utils.toBbox(self._rle)
-
-    @property
-    def rle(self):
-        return self._rle
 
     def __eq__(self, other):
         if not isinstance(other, __class__):
@@ -334,37 +322,25 @@ class _Shape(Annotation):
             id=None, attributes=None, group=None):
         super().__init__(id=id, type=type,
             attributes=attributes, group=group)
-        self._points = points
+        self.points = points
 
         if label is not None:
             label = int(label)
-        self._label = label
+        self.label = label
 
         if z_order is None:
             z_order = 0
         else:
             z_order = int(z_order)
-        self._z_order = z_order
+        self.z_order = z_order
     # pylint: enable=redefined-builtin
-
-    @property
-    def points(self):
-        return self._points
-
-    @property
-    def label(self):
-        return self._label
-
-    @property
-    def z_order(self):
-        return self._z_order
 
     def get_area(self):
         raise NotImplementedError()
 
     def get_bbox(self):
         points = self.points
-        if not points:
+        if points is None or len(points) == 0:
             return None
 
         xs = [p for p in points[0::2]]
