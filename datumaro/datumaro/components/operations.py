@@ -14,8 +14,8 @@ from datumaro.components.cli_plugin import CliPlugin
 from datumaro.components.config import Config, SchemaBuilder
 from datumaro.components.extractor import AnnotationType, Bbox, LabelCategories
 from datumaro.components.project import Dataset
-from datumaro.util import find
-from datumaro.util.annotation_tools import compute_bbox, iou as segment_iou, nms
+from datumaro.util import find, pairs
+from datumaro.util.annotation_util import segment_iou, bbox_iou, mean_bbox, OKS, PDJ, find_instances, max_bbox
 
 SEGMENT_TYPES = {
     AnnotationType.bbox,

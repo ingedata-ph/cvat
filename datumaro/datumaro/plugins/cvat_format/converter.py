@@ -12,15 +12,11 @@ from xml.sax.saxutils import XMLGenerator
 from datumaro.components.cli_plugin import CliPlugin
 from datumaro.components.converter import Converter
 from datumaro.components.extractor import DEFAULT_SUBSET_NAME, AnnotationType
-from datumaro.util import cast
+from datumaro.util import cast, pairs
 from datumaro.util.image import save_image
 
 from .format import CvatPath
 
-
-def pairwise(iterable):
-    a = iter(iterable)
-    return zip(a, a)
 
 class XmlAnnotationWriter:
     VERSION = '1.1'
@@ -260,7 +256,7 @@ class _SubsetWriter:
                     ','.join((
                         "{:.2f}".format(x),
                         "{:.2f}".format(y)
-                    )) for x, y in pairwise(shape.points))
+                    )) for x, y in pairs(shape.points))
                 )),
             ]))
 

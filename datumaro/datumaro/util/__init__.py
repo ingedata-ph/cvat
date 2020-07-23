@@ -84,3 +84,7 @@ def str_to_bool(s):
         return False
     else:
         raise ValueError("Can't convert value '%s' to bool" % s)
+
+def pairs(iterable):
+    a = iter(iterable)
+    return zip(a, a)

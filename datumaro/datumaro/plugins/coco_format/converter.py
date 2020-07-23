@@ -20,7 +20,7 @@ from datumaro.components.cli_plugin import CliPlugin
 from datumaro.util import find, cast, str_to_bool
 from datumaro.util.image import save_image
 import datumaro.util.mask_tools as mask_tools
-import datumaro.util.annotation_tools as anno_tools
+import datumaro.util.annotation_util as anno_tools
 
 from .format import CocoTask, CocoPath
 
@@ -206,7 +206,7 @@ class _InstancesConverter(_TaskConverter):
 
         anns = boxes + polygons + masks
         leader = anno_tools.find_group_leader(anns)
-        bbox = anno_tools.compute_bbox(anns)
+        bbox = anno_tools.max_bbox(anns)
         mask = None
         polygons = [p.points for p in polygons]
 

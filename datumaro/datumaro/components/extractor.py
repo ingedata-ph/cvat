@@ -436,7 +436,7 @@ class Bbox(_Shape):
         ]
 
     def iou(self, other):
-        from datumaro.util.annotation_tools import bbox_iou
+        from datumaro.util.annotation_util import bbox_iou
         return bbox_iou(self.get_bbox(), other.get_bbox())
 
 class PointsCategories(Categories):

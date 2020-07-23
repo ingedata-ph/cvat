@@ -17,7 +17,7 @@ from datumaro.components.converter import Converter
 from datumaro.components.cli_plugin import CliPlugin
 from datumaro.util.image import encode_image
 from datumaro.util.mask_tools import merge_masks
-from datumaro.util.annotation_tools import (compute_bbox,
+from datumaro.util.annotation_util import (max_bbox,
     find_group_leader, find_instances)
 from datumaro.util.tf_util import import_tf as _import_tf
 
@@ -112,7 +112,7 @@ class TfDetectionApiConverter(Converter, CliPlugin):
 
         anns = boxes + masks
         leader = find_group_leader(anns)
-        bbox = compute_bbox(anns)
+        bbox = max_bbox(anns)
 
         mask = None
         if self._save_masks:
