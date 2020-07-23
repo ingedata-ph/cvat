@@ -62,10 +62,12 @@ class Schema:
 
         if self._fallback is not None:
             return self._fallback.get(key, default)
+        return found
 
 class SchemaBuilder:
-    def __init__(self):
+    def __init__(self, fallback=None):
         self._items = {}
+        self._fallback = fallback
 
     def add(self, name, ctor=str, internal=False):
         if name in self._items:
@@ -75,7 +77,7 @@ class SchemaBuilder:
         return self
 
     def build(self):
-        return Schema(self._items)
+        return Schema(self._items, fallback=self._fallback)
 
 class Config:
     def __init__(self, config=None, fallback=None, schema=None, mutable=True):
@@ -189,7 +191,7 @@ class Config:
 
         if self._schema is not None:
             if key not in self._schema:
-                raise Exception("Can not set key '%s' - schema mismatch" % (key))
+                raise Exception("Can not set key '%s' - schema mismatch" % key)
 
             schema_entry = self._schema[key]
             schema_entry_instance = schema_entry()
@@ -199,7 +201,7 @@ class Config:
                     schema_entry_instance.update(value)
                     value = schema_entry_instance
                 else:
-                    raise Exception("Can not set key '%s' - schema mismatch" % (key))
+                    raise Exception("Can not set key '%s' to '%s' - schema mismatch" % (key, value))
 
         self._config[key] = value
         return value
