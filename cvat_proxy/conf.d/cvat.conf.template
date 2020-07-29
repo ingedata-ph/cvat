@@ -13,6 +13,13 @@ server {
     proxy_pass_header       Set-Cookie;
 
     location ~* /api/.*|git/.*|tensorflow/.*|auto_annotation/.*|analytics/.*|static/.*|admin|admin/.*|documentation/.*|dextr/.*|reid/.*  {
+        if ($http_origin ~ '^https?://(localhost|rhymes.ingedata.net)') {
+            add_header 'Access-Control-Allow-Origin' "$http_origin" always;
+            add_header 'Access-Control-Allow-Credentials' 'true' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+            add_header 'Access-Control-Allow-Headers' 'Accept,Authorization,Cache-Control,Content-Type,DNT,If-Modified-Since,Keep-Alive,Origin,User-Agent,X-Requested-With,X-CSRFTOKEN' always;
+        }
+
         proxy_pass              http://cvat:8080;
     }
 
@@ -21,6 +28,7 @@ server {
         error_page 418 = @annotation_ui;
 
         if ( $query_string ~ "^id=\d+.*" ) { return 418; }
+
         proxy_pass              http://cvat_ui;
     }
 
@@ -30,6 +38,9 @@ server {
 
     # old annotation ui, will be removed in the future.
     location @annotation_ui {
+        proxy_hide_header X-Frame-Options;
+        add_header 'X-Frame-Options' "ALLOWALL";
+
         proxy_pass              http://cvat:8080;
     }
 }
