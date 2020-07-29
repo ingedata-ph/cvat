@@ -18,7 +18,6 @@
     Cookies:false
 */
 
-
 Math.clamp = (x, min, max) => Math.min(Math.max(x, min), max);
 
 String.customSplit = (string, separator) => {
@@ -34,13 +33,17 @@ String.customSplit = (string, separator) => {
         occurences.pop();
     }
 
-    let copy = '';
+    let copy = "";
     if (occurences.length) {
         let start = 0;
         for (let idx = 0; idx < occurences.length; idx += 2) {
             copy += string.substr(start, occurences[idx] - start);
-            copy += string.substr(occurences[idx], occurences[idx + 1] - occurences[idx] + 1)
-                .replace(new RegExp(separator, 'g'), '\0');
+            copy += string
+                .substr(
+                    occurences[idx],
+                    occurences[idx + 1] - occurences[idx] + 1
+                )
+                .replace(new RegExp(separator, "g"), "\0");
             start = occurences[idx + 1] + 1;
         }
         copy += string.substr(occurences[occurences.length - 1] + 1);
@@ -48,35 +51,36 @@ String.customSplit = (string, separator) => {
         copy = string;
     }
 
-    return copy.split(new RegExp(separator, 'g')).map(x => x.replace(/\0/g, separator));
+    return copy
+        .split(new RegExp(separator, "g"))
+        .map((x) => x.replace(/\0/g, separator));
 };
 
-
 function userConfirm(message, onagree, ondisagree) {
-    const template = $('#confirmTemplate');
-    const confirmWindow = $(template.html()).css('display', 'block');
+    const template = $("#confirmTemplate");
+    const confirmWindow = $(template.html()).css("display", "block");
 
-    const annotationConfirmMessage = confirmWindow.find('.templateMessage');
-    const agreeConfirm = confirmWindow.find('.templateAgreeButton');
-    const disagreeConfirm = confirmWindow.find('.templateDisagreeButton');
+    const annotationConfirmMessage = confirmWindow.find(".templateMessage");
+    const agreeConfirm = confirmWindow.find(".templateAgreeButton");
+    const disagreeConfirm = confirmWindow.find(".templateDisagreeButton");
 
     function hideConfirm() {
-        agreeConfirm.off('click');
-        disagreeConfirm.off('click');
+        agreeConfirm.off("click");
+        disagreeConfirm.off("click");
         confirmWindow.remove();
     }
 
     annotationConfirmMessage.text(message);
-    $('body').append(confirmWindow);
+    $("body").append(confirmWindow);
 
-    agreeConfirm.on('click', () => {
+    agreeConfirm.on("click", () => {
         hideConfirm();
         if (onagree) {
             onagree();
         }
     });
 
-    disagreeConfirm.on('click', () => {
+    disagreeConfirm.on("click", () => {
         hideConfirm();
         if (ondisagree) {
             ondisagree();
@@ -84,28 +88,27 @@ function userConfirm(message, onagree, ondisagree) {
     });
 
     disagreeConfirm.focus();
-    confirmWindow.on('keydown', (e) => {
+    confirmWindow.on("keydown", (e) => {
         e.stopPropagation();
     });
 }
 
-
 function showMessage(message) {
-    const template = $('#messageTemplate');
-    const messageWindow = $(template.html()).css('display', 'block');
+    const template = $("#messageTemplate");
+    const messageWindow = $(template.html()).css("display", "block");
 
-    const messageText = messageWindow.find('.templateMessage');
-    const okButton = messageWindow.find('.templateOKButton');
+    const messageText = messageWindow.find(".templateMessage");
+    const okButton = messageWindow.find(".templateOKButton");
 
     messageText.text(message);
-    $('body').append(messageWindow);
+    $("body").append(messageWindow);
 
-    messageWindow.on('keydown', (e) => {
+    messageWindow.on("keydown", (e) => {
         e.stopPropagation();
     });
 
-    okButton.on('click', () => {
-        okButton.off('click');
+    okButton.on("click", () => {
+        okButton.off("click");
         messageWindow.remove();
     });
 
@@ -113,11 +116,10 @@ function showMessage(message) {
     return messageWindow;
 }
 
-
 function showOverlay(message) {
-    const template = $('#overlayTemplate');
-    const overlayWindow = $(template.html()).css('display', 'block');
-    const overlayText = overlayWindow.find('.templateMessage');
+    const template = $("#overlayTemplate");
+    const overlayWindow = $(template.html()).css("display", "block");
+    const overlayText = overlayWindow.find(".templateMessage");
 
     overlayWindow[0].getMessage = () => overlayText.html();
     overlayWindow[0].remove = () => overlayWindow.remove();
@@ -125,7 +127,7 @@ function showOverlay(message) {
         overlayText.html(msg);
     };
 
-    $('body').append(overlayWindow);
+    $("body").append(overlayWindow);
     overlayWindow[0].setMessage(message);
     return overlayWindow[0];
 }
@@ -143,7 +145,7 @@ async function dumpAnnotationRequest(tid, format) {
                     if (args[2].status === 202) {
                         setTimeout(request, 3000);
                     } else {
-                        const a = document.createElement('a');
+                        const a = document.createElement("a");
                         queryString = `${queryString}&action=download`;
                         a.href = `${url}?${queryString}`;
                         document.body.appendChild(a);
@@ -151,9 +153,13 @@ async function dumpAnnotationRequest(tid, format) {
                         a.remove();
                         resolve();
                     }
-                }).fail((errorData) => {
-                    const message = `Can not dump annotations for the task. Code: ${errorData.status}. `
-                        + `Message: ${errorData.responseText || errorData.statusText}`;
+                })
+                .fail((errorData) => {
+                    const message =
+                        `Can not dump annotations for the task. Code: ${errorData.status}. ` +
+                        `Message: ${
+                            errorData.responseText || errorData.statusText
+                        }`;
                     reject(new Error(message));
                 });
         }
@@ -169,20 +175,23 @@ async function uploadAnnoRequest(url, formData, format) {
             try {
                 await $.ajax({
                     url: `${url}?${queryString}`,
-                    type: 'PUT',
+                    type: "PUT",
                     data,
                     contentType: false,
                     processData: false,
                 }).done((...args) => {
                     if (args[2].status === 202) {
-                        setTimeout(() => request(''), 3000);
+                        setTimeout(() => request(""), 3000);
                     } else {
                         resolve();
                     }
                 });
             } catch (errorData) {
-                const message = `Can not upload annotations for the job. Code: ${errorData.status}. `
-                    + `Message: ${errorData.responseText || errorData.statusText}`;
+                const message =
+                    `Can not upload annotations for the job. Code: ${errorData.status}. ` +
+                    `Message: ${
+                        errorData.responseText || errorData.statusText
+                    }`;
                 reject(new Error(message));
             }
         }
@@ -192,36 +201,64 @@ async function uploadAnnoRequest(url, formData, format) {
 }
 
 async function uploadJobAnnotationRequest(jid, formData, format) {
-    return uploadAnnoRequest(`/api/v1/jobs/${jid}/annotations`, formData, format);
+    return uploadAnnoRequest(
+        `/api/v1/jobs/${jid}/annotations`,
+        formData,
+        format
+    );
 }
 
 async function uploadTaskAnnotationRequest(tid, formData, format) {
-    return uploadAnnoRequest(`/api/v1/tasks/${tid}/annotations`, formData, format);
+    return uploadAnnoRequest(
+        `/api/v1/tasks/${tid}/annotations`,
+        formData,
+        format
+    );
 }
 
 /* These HTTP methods do not require CSRF protection */
 function csrfSafeMethod(method) {
-    return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+    return /^(GET|HEAD|OPTIONS|TRACE)$/.test(method);
 }
-
 
 $.ajaxSetup({
     beforeSend(xhr, settings) {
         if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
-            xhr.setRequestHeader('X-CSRFToken', Cookies.get('csrftoken'));
+            xhr.setRequestHeader("X-CSRFToken", Cookies.get("csrftoken"));
         }
     },
 });
 
-
 $(document).ready(() => {
-    $('body').css({
+    $("body").css({
         width: `${window.screen.width}px`,
         height: `${window.screen.height * 0.95}px`,
     });
 });
 
 function isDefaultFormat(dumperName, taskMode) {
-    return (dumperName === 'CVAT for video 1.1' && taskMode === 'interpolation')
-    || (dumperName === 'CVAT for images 1.1' && taskMode === 'annotation');
+    return (
+        (dumperName === "CVAT for video 1.1" && taskMode === "interpolation") ||
+        (dumperName === "CVAT for images 1.1" && taskMode === "annotation")
+    );
 }
+
+window.addEventListener("message", (event) => {
+    // IMPORTANT: check the origin of the data!
+    if (event.origin.match("^https?://(localhost|rhymes.ingedata.net)")) {
+        // The data was sent from your site.
+        // Data sent with postMessage is stored in event.data:
+
+        const decodedMethod = decodeURI(event.data.method);
+
+        eval(`${decodedMethod}`);
+        if (event.data.methodCall) {
+            eval(`${event.data.methodCall}`);
+        }
+    } else {
+        // The data was NOT sent from your site!
+        // Be careful! Do not use it. This else branch is
+        // here just for clarity, you usually shouldn't need it.
+        return;
+    }
+});
