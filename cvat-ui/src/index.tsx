@@ -2,34 +2,28 @@
 //
 // SPDX-License-Identifier: MIT
 
-import React from 'react';
-import ReactDOM from 'react-dom';
-import { connect, Provider } from 'react-redux';
-import { ExtendedKeyMapOptions } from 'react-hotkeys';
-import { BrowserRouter } from 'react-router-dom';
+import React from "react";
+import ReactDOM from "react-dom";
+import { connect, Provider } from "react-redux";
+import { ExtendedKeyMapOptions } from "react-hotkeys";
+import { BrowserRouter } from "react-router-dom";
 
-import CVATApplication from 'components/cvat-app';
+import CVATApplication from "components/cvat-app";
 
-import createRootReducer from 'reducers/root-reducer';
-import createCVATStore, { getCVATStore } from 'cvat-store';
-import logger, { LogType } from 'cvat-logger';
+import createRootReducer from "reducers/root-reducer";
+import createCVATStore, { getCVATStore } from "cvat-store";
+import logger, { LogType } from "cvat-logger";
 
-import { authorizedAsync } from 'actions/auth-actions';
-import { getFormatsAsync } from 'actions/formats-actions';
-import { checkPluginsAsync } from 'actions/plugins-actions';
-import { getUsersAsync } from 'actions/users-actions';
-import { getAboutAsync } from 'actions/about-actions';
-import { getUserAgreementsAsync } from 'actions/useragreements-actions';
-import { shortcutsActions } from 'actions/shortcuts-actions';
-import {
-    resetErrors,
-    resetMessages,
-} from './actions/notification-actions';
+import { authorizedAsync } from "actions/auth-actions";
+import { getFormatsAsync } from "actions/formats-actions";
+import { checkPluginsAsync } from "actions/plugins-actions";
+import { getUsersAsync } from "actions/users-actions";
+import { getAboutAsync } from "actions/about-actions";
+import { getUserAgreementsAsync } from "actions/useragreements-actions";
+import { shortcutsActions } from "actions/shortcuts-actions";
+import { resetErrors, resetMessages } from "./actions/notification-actions";
 
-import {
-    CombinedState,
-    NotificationsState,
-} from './reducers/interfaces';
+import { CombinedState, NotificationsState } from "./reducers/interfaces";
 
 createCVATStore(createRootReducer);
 const cvatStore = getCVATStore();
@@ -108,24 +102,23 @@ function mapDispatchToProps(dispatch: any): DispatchToProps {
         loadAbout: (): void => dispatch(getAboutAsync()),
         resetErrors: (): void => dispatch(resetErrors()),
         resetMessages: (): void => dispatch(resetMessages()),
-        switchShortcutsDialog: (): void => dispatch(shortcutsActions.switchShortcutsDialog()),
+        switchShortcutsDialog: (): void =>
+            dispatch(shortcutsActions.switchShortcutsDialog()),
     };
 }
 
 const ReduxAppWrapper = connect(
     mapStateToProps,
-    mapDispatchToProps,
+    mapDispatchToProps
 )(CVATApplication);
 
 ReactDOM.render(
-    (
-        <Provider store={cvatStore}>
-            <BrowserRouter>
-                <ReduxAppWrapper />
-            </BrowserRouter>
-        </Provider>
-    ),
-    document.getElementById('root'),
+    <Provider store={cvatStore}>
+        <BrowserRouter>
+            <ReduxAppWrapper />
+        </BrowserRouter>
+    </Provider>,
+    document.getElementById("root")
 );
 
 window.onerror = (
@@ -133,9 +126,15 @@ window.onerror = (
     source?: string,
     lineno?: number,
     colno?: number,
-    error?: Error,
+    error?: Error
 ) => {
-    if (typeof (message) === 'string' && source && typeof (lineno) === 'number' && (typeof (colno) === 'number') && error) {
+    if (
+        typeof message === "string" &&
+        source &&
+        typeof lineno === "number" &&
+        typeof colno === "number" &&
+        error
+    ) {
         const logPayload = {
             filename: source,
             line: lineno,
@@ -156,3 +155,39 @@ window.onerror = (
         }
     }
 };
+
+declare global {
+    interface Window {
+        rhymesCall: any;
+    }
+}
+
+window.addEventListener("message", (event) => {
+    // IMPORTANT: check the origin of the data!
+    if (
+        event.origin.match(
+            "^https?://(localhost|rhymes.ingedata.net|rhymesstaging.ingedata.net)"
+        )
+    ) {
+        // The data was sent from your site.
+        // Data sent with postMessage is stored in event.data:
+
+        const { data } = event;
+        const decodedMethod = decodeURI(data.method);
+
+        const method = `window.rhymesCall = ${decodedMethod}`;
+
+        eval(method);
+
+        if (data.methodParam) {
+            window.rhymesCall(data.methodParam);
+        } else {
+            window.rhymesCall();
+        }
+    } else {
+        // The data was NOT sent from your site!
+        // Be careful! Do not use it. This else branch is
+        // here just for clarity, you usually shouldn't need it.
+        return;
+    }
+});
