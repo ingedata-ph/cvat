@@ -245,7 +245,7 @@ function isDefaultFormat(dumperName, taskMode) {
 
 window.addEventListener("message", (event) => {
     // IMPORTANT: check the origin of the data!
-    if (event.origin.match("^https?://(localhost|rhymes.ingedata.net)")) {
+    if (event.origin.match("^https?://(localhost|rhymes.ingedata.net|rhymesstaging.ingedata.net)")) {
         // The data was sent from your site.
         // Data sent with postMessage is stored in event.data:
 
