@@ -172,7 +172,7 @@ window.addEventListener("message", (event) => {
     // IMPORTANT: check the origin of the data!
     if (
         event.origin.match(
-            "^https?://(localhost|rhymes.ingedata.net|rhymesstaging.ingedata.net)"
+            "^https?://(rhymes.ingedata.net|rhymes-staging.ingedata.net)"
         )
     ) {
         // The data was sent from your site.
