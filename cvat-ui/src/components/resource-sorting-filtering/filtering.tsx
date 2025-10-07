@@ -1,13 +1,13 @@
 // Copyright (C) 2022 Intel Corporation
+// Copyright (C) 2022-2023 CVAT.ai Corporation
 //
 // SPDX-License-Identifier: MIT
 
 import React, { useState, useEffect } from 'react';
-import 'react-awesome-query-builder/lib/css/styles.css';
-import AntdConfig from 'react-awesome-query-builder/lib/config/antd';
 import {
-    Builder, Config, ImmutableTree, Query, Utils as QbUtils,
-} from 'react-awesome-query-builder';
+    Builder, Config, AntdConfig, ImmutableTree, Query, Utils as QbUtils,
+} from '@react-awesome-query-builder/antd';
+import '@modules/@react-awesome-query-builder/antd/css/styles.css';
 import {
     DownOutlined, FilterFilled, FilterOutlined,
 } from '@ant-design/icons';
@@ -17,15 +17,16 @@ import Button from 'antd/lib/button';
 import Checkbox, { CheckboxChangeEvent } from 'antd/lib/checkbox/Checkbox';
 import Menu from 'antd/lib/menu';
 import { useSelector } from 'react-redux';
-import { CombinedState } from 'reducers/interfaces';
-import { User } from 'components/task-page/user-selector';
+import { CombinedState } from 'reducers';
+import { User } from 'cvat-core-wrapper';
 
 interface ResourceFilterProps {
-    predefinedVisible: boolean;
+    predefinedVisible?: boolean;
     recentVisible: boolean;
     builderVisible: boolean;
     value: string | null;
-    onPredefinedVisibleChange(visible: boolean): void;
+    disabled?: boolean;
+    onPredefinedVisibleChange?: (visible: boolean) => void;
     onBuilderVisibleChange(visible: boolean): void;
     onRecentVisibleChange(visible: boolean): void;
     onApplyFilter(filter: string | null): void;
@@ -35,7 +36,7 @@ export default function ResourceFilterHOC(
     filtrationCfg: Partial<Config>,
     localStorageRecentKeyword: string,
     localStorageRecentCapacity: number,
-    predefinedFilterValues: Record<string, string>,
+    predefinedFilterValues?: Record<string, string>,
 ): React.FunctionComponent<ResourceFilterProps> {
     const config: Config = { ...AntdConfig, ...filtrationCfg };
     const defaultTree = QbUtils.checkTree(
@@ -100,9 +101,10 @@ export default function ResourceFilterHOC(
         return filters[0];
     }
 
-    function getPredefinedFilters(user: User): Record<string, string> {
-        const result: Record<string, string> = {};
-        if (user) {
+    function getPredefinedFilters(user: User): Record<string, string> | null {
+        let result: Record <string, string> | null = null;
+        if (user && predefinedFilterValues) {
+            result = {};
             for (const key of Object.keys(predefinedFilterValues)) {
                 result[key] = predefinedFilterValues[key].replace('<username>', `${user.username}`);
             }
@@ -115,6 +117,7 @@ export default function ResourceFilterHOC(
         const {
             predefinedVisible, builderVisible, recentVisible, value,
             onPredefinedVisibleChange, onBuilderVisibleChange, onRecentVisibleChange, onApplyFilter,
+            disabled,
         } = props;
 
         const user = useSelector((state: CombinedState) => state.auth.user);
@@ -126,15 +129,6 @@ export default function ResourceFilterHOC(
         useEffect(() => {
             setRecentFilters(receiveRecentFilters());
             setIsMounted(true);
-
-            const listener = (event: MouseEvent): void => {
-                const path: HTMLElement[] = event.composedPath()
-                    .filter((el: EventTarget) => el instanceof HTMLElement) as HTMLElement[];
-                if (path.some((el: HTMLElement) => el.id === 'root') && !path.some((el: HTMLElement) => el.classList.contains('ant-btn'))) {
-                    onBuilderVisibleChange(false);
-                    onRecentVisibleChange(false);
-                }
-            };
 
             try {
                 if (value) {
@@ -150,10 +144,26 @@ export default function ResourceFilterHOC(
             } catch (_: any) {
                 // nothing to do
             }
+        }, []);
+
+        useEffect(() => {
+            const listener = (event: MouseEvent): void => {
+                const path: HTMLElement[] = event.composedPath()
+                    .filter((el: EventTarget) => el instanceof HTMLElement) as HTMLElement[];
+                if (path.some((el: HTMLElement) => el.id === 'root') && !path.some((el: HTMLElement) => el.classList.contains('ant-btn'))) {
+                    if (builderVisible) {
+                        onBuilderVisibleChange(false);
+                    }
+
+                    if (predefinedVisible) {
+                        onRecentVisibleChange(false);
+                    }
+                }
+            };
 
             window.addEventListener('click', listener);
             return () => window.removeEventListener('click', listener);
-        }, []);
+        }, [builderVisible, predefinedVisible]);
 
         useEffect(() => {
             if (!isMounted) {
@@ -166,7 +176,7 @@ export default function ResourceFilterHOC(
             } else if (appliedFilter.recent) {
                 onApplyFilter(appliedFilter.recent);
                 const tree = QbUtils.loadFromJsonLogic(JSON.parse(appliedFilter.recent), config);
-                if (isValidTree(tree)) {
+                if (tree && isValidTree(tree)) {
                     setState(tree);
                 }
             } else if (appliedFilter.built) {
@@ -181,7 +191,7 @@ export default function ResourceFilterHOC(
 
         const renderBuilder = (builderProps: any): JSX.Element => (
             <div className='query-builder-container'>
-                <div className='query-builder qb-lite'>
+                <div className='query-builder'>
                     <Builder {...builderProps} />
                 </div>
             </div>
@@ -190,51 +200,60 @@ export default function ResourceFilterHOC(
         const predefinedFilters = getPredefinedFilters(user);
         return (
             <div className='cvat-resource-page-filters'>
-                <Dropdown
-                    destroyPopupOnHide
-                    visible={predefinedVisible}
-                    placement='bottomLeft'
-                    overlay={(
-                        <div className='cvat-resource-page-predefined-filters-list'>
-                            {Object.keys(predefinedFilters).map((key: string): JSX.Element => (
-                                <Checkbox
-                                    checked={appliedFilter.predefined?.includes(predefinedFilters[key])}
-                                    onChange={(event: CheckboxChangeEvent) => {
-                                        let updatedValue: string[] | null = appliedFilter.predefined || [];
-                                        if (event.target.checked) {
-                                            updatedValue.push(predefinedFilters[key]);
-                                        } else {
-                                            updatedValue = updatedValue
-                                                .filter((appliedValue: string) => (
-                                                    appliedValue !== predefinedFilters[key]
-                                                ));
-                                        }
+                {
+                    predefinedFilters && onPredefinedVisibleChange ? (
+                        <Dropdown
+                            destroyPopupOnHide
+                            visible={predefinedVisible}
+                            placement='bottomLeft'
+                            overlay={(
+                                <div className='cvat-resource-page-predefined-filters-list'>
+                                    {Object.keys(predefinedFilters).map((key: string): JSX.Element => (
+                                        <Checkbox
+                                            checked={appliedFilter.predefined?.includes(predefinedFilters[key])}
+                                            onChange={(event: CheckboxChangeEvent) => {
+                                                let updatedValue: string[] | null = appliedFilter.predefined || [];
+                                                if (event.target.checked) {
+                                                    updatedValue.push(predefinedFilters[key]);
+                                                } else {
+                                                    updatedValue = updatedValue
+                                                        .filter((appliedValue: string) => (
+                                                            appliedValue !== predefinedFilters[key]
+                                                        ));
+                                                }
 
-                                        if (!updatedValue.length) {
-                                            updatedValue = null;
-                                        }
+                                                if (!updatedValue.length) {
+                                                    updatedValue = null;
+                                                }
 
-                                        setAppliedFilter({
-                                            ...defaultAppliedFilter,
-                                            predefined: updatedValue,
-                                        });
-                                    }}
-                                    key={key}
-                                >
-                                    {key}
-                                </Checkbox>
-                            )) }
-                        </div>
-                    )}
-                >
-                    <Button type='default' onClick={() => onPredefinedVisibleChange(!predefinedVisible)}>
-                        Quick filters
-                        { appliedFilter.predefined ?
-                            <FilterFilled /> :
-                            <FilterOutlined />}
-                    </Button>
-                </Dropdown>
+                                                setAppliedFilter({
+                                                    ...defaultAppliedFilter,
+                                                    predefined: updatedValue,
+                                                });
+                                            }}
+                                            key={key}
+                                        >
+                                            {key}
+                                        </Checkbox>
+                                    )) }
+                                </div>
+                            )}
+                        >
+                            <Button
+                                className='cvat-quick-filters-button'
+                                type='default'
+                                onClick={() => onPredefinedVisibleChange(!predefinedVisible)}
+                            >
+                                Quick filters
+                                { appliedFilter.predefined ?
+                                    <FilterFilled /> :
+                                    <FilterOutlined />}
+                            </Button>
+                        </Dropdown>
+                    ) : null
+                }
                 <Dropdown
+                    disabled={disabled}
                     placement='bottomRight'
                     visible={builderVisible}
                     destroyPopupOnHide
@@ -278,6 +297,7 @@ export default function ResourceFilterHOC(
                                     )}
                                 >
                                     <Button
+                                        className='cvat-recent-filters-button'
                                         size='small'
                                         type='text'
                                         onClick={
@@ -300,6 +320,7 @@ export default function ResourceFilterHOC(
                             />
                             <Space className='cvat-resource-page-filters-space'>
                                 <Button
+                                    className='cvat-reset-filters-button'
                                     disabled={!QbUtils.queryString(state, config)}
                                     size='small'
                                     onClick={() => {
@@ -314,6 +335,7 @@ export default function ResourceFilterHOC(
                                     Reset
                                 </Button>
                                 <Button
+                                    className='cvat-apply-filters-button'
                                     size='small'
                                     type='primary'
                                     onClick={() => {
@@ -335,7 +357,7 @@ export default function ResourceFilterHOC(
                         </div>
                     )}
                 >
-                    <Button type='default' onClick={() => onBuilderVisibleChange(!builderVisible)}>
+                    <Button className='cvat-switch-filters-constructor-button' type='default' onClick={() => onBuilderVisibleChange(!builderVisible)}>
                         Filter
                         { appliedFilter.built || appliedFilter.recent ?
                             <FilterFilled /> :
@@ -343,7 +365,8 @@ export default function ResourceFilterHOC(
                     </Button>
                 </Dropdown>
                 <Button
-                    disabled={!(appliedFilter.built || appliedFilter.predefined || appliedFilter.recent)}
+                    className='cvat-clear-filters-button'
+                    disabled={!(appliedFilter.built || appliedFilter.predefined || appliedFilter.recent) || disabled}
                     size='small'
                     type='link'
                     onClick={() => { setAppliedFilter({ ...defaultAppliedFilter }); }}

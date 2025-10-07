@@ -1,10 +1,13 @@
 // Copyright (C) 2020-2022 Intel Corporation
+// Copyright (C) 2022-2023 CVAT.ai Corporation
 //
 // SPDX-License-Identifier: MIT
 
 const {
     tasksDummyData,
+    tasksDummyLabelsData,
     projectsDummyData,
+    projectsDummyLabelsData,
     aboutDummyData,
     formatsDummyData,
     shareDummyData,
@@ -13,6 +16,9 @@ const {
     jobAnnotationsDummyData,
     frameMetaDummyData,
     cloudStoragesDummyData,
+    webhooksDummyData,
+    webhooksEventsDummyData,
+    jobsDummyData,
 } = require('./dummy-data.mock');
 
 function QueryStringToJSON(query, ignoreList = []) {
@@ -90,6 +96,7 @@ class ServerProxy {
                 return true;
             });
 
+            result.count = result.length;
             return result;
         }
 
@@ -101,12 +108,21 @@ class ServerProxy {
                     Object.prototype.hasOwnProperty.call(object, prop)
                 ) {
                     if (prop === 'labels') {
-                        object[prop] = projectData[prop].filter((label) => !label.deleted);
+                        const labels = projectsDummyLabelsData[id];
+                        // only add new labels here
+                        const maxId = Math.max(0, ...labels.map((label) => label.id));
+                        const newLabels = [...labels, ...projectData.labels.map((label, index) => (
+                            { ...label, id: maxId + index + 1 }
+                        ))];
+
+                        projectsDummyLabelsData[object.id] = newLabels;
                     } else {
                         object[prop] = projectData[prop];
                     }
                 }
             }
+
+            return (await getProjects({ id }))[0];
         }
 
         async function createProject(projectData) {
@@ -153,6 +169,7 @@ class ServerProxy {
                 return true;
             });
 
+            result.count = result.length;
             return result;
         }
 
@@ -164,7 +181,18 @@ class ServerProxy {
                     Object.prototype.hasOwnProperty.call(object, prop)
                 ) {
                     if (prop === 'labels') {
-                        object[prop] = taskData[prop].filter((label) => !label.deleted);
+                        const labels = (projectsDummyLabelsData[object.project_id] || tasksDummyLabelsData[object.id])
+                        // only add new labels here
+                        const maxId = Math.max(0, ...labels.map((label) => label.id));
+                        const newLabels = [...labels, ...taskData.labels.map((label, index) => (
+                            { ...label, id: maxId + index + 1 }
+                        ))];
+
+                        if (Number.isInteger(object.project_id)) {
+                            projectsDummyLabelsData[object.project_id] = newLabels;
+                        } else {
+                            tasksDummyLabelsData[object.id] = newLabels;
+                        }
                     } else {
                         object[prop] = taskData[prop];
                     }
@@ -212,49 +240,116 @@ class ServerProxy {
             }
         }
 
-        async function getJobs(filter = {}) {
-            const id = filter.id || null;
-            const jobs = tasksDummyData.results
-                .reduce((acc, task) => {
-                    for (const segment of task.segments) {
-                        for (const job of segment.jobs) {
-                            const copy = JSON.parse(JSON.stringify(job));
-                            copy.start_frame = segment.start_frame;
-                            copy.stop_frame = segment.stop_frame;
-                            copy.task_id = task.id;
-                            copy.dimension = task.dimension;
-                            copy.data_compressed_chunk_type = task.data_compressed_chunk_type;
-                            copy.data_chunk_size = task.data_chunk_size;
-                            copy.bug_tracker = task.bug_tracker;
-                            copy.mode = task.mode;
-                            copy.labels = task.labels;
+        async function getLabels(filter) {
+            const { task_id, job_id, project_id } = filter;
+            if (Number.isInteger(task_id)) {
+                const object = tasksDummyData.results.find((task) => task.id === task_id);
+                if (Number.isInteger(object.project_id)) {
+                    return await getLabels({ project_id: object.project_id });
+                }
 
-                            acc.push(copy);
-                        }
+                const results = tasksDummyLabelsData[task_id] || [];
+                return { results, count: results.length };
+            }
+
+            if (Number.isInteger(project_id)) {
+                const results =  projectsDummyLabelsData[project_id] || [];
+                return { results, count: results.length };
+            }
+
+            if (Number.isInteger(job_id)) {
+                const job = jobsDummyData.results.find((job) => job.id === job_id);
+                const project = job && Number.isInteger(job.project_id) ? projectsDummyData.results[job.project_id] : undefined;
+                const task = job ? tasksDummyData.results.find((task) => task.id === job.task_id) : undefined;
+
+                if (project) {
+                    return await getLabels({ project_id: project.id });
+                }
+
+                if (task) {
+                    return await getLabels({ task_id: task.id });
+                }
+            }
+
+            return { results: [], count: 0 };
+        }
+
+        async function deleteLabel(id) {
+            const containers = [tasksDummyLabelsData, projectsDummyLabelsData];
+            for (const container of containers) {
+                for (const instanceID in container) {
+                    const index = container[instanceID].findIndex((label) => label.id === id);
+                    if (index !== -1) {
+                        container[instanceID].splice(index, 1);
                     }
+                }
+            }
+        }
 
-                    return acc;
-                }, [])
-                .filter((job) => job.id === id);
+        async function updateLabel(body) {
+            return body;
+        }
+
+        async function getJobs(filter = {}) {
+            if (Number.isInteger(filter.id)) {
+                // A specific object is requested
+                const results = jobsDummyData.results.filter((job) => job.id === filter.id);
+                return {
+                    results: results,
+                    count: results.length,
+                }
+            }
+
+            function makeJsonFilter(jsonExpr) {
+                if (!jsonExpr) {
+                    return (job) => true;
+                }
+
+                // This function only covers test cases. Extend it if needed.
+                function escapeRegExp(string) {
+                    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                }
+                let pattern = JSON.stringify({
+                    and: [{ '==': [{ var: 'task_id' }, '<id>'] }]
+                });
+                pattern = escapeRegExp(pattern).replace('"<id>"', '(\\d+)');
+                const matches = jsonExpr.match(pattern);
+                const task_id = Number.parseInt(matches[1]);
+                return (job) => job.task_id === task_id;
+            };
+
+            let jobs = [];
+            if (Number.isInteger(filter.id)) {
+                jobs = jobsDummyData.results.filter((job) => job.id === filter.id);
+            } else if (Number.isInteger(filter.task_id)) {
+                jobs = jobsDummyData.results.filter((job) => job.task_id === filter.task_id);
+            } else {
+                jobs = jobsDummyData.results.filter(makeJsonFilter(filter.filter || null));
+            }
+
+
+            for (const job of jobs) {
+                const task = tasksDummyData.results.find((task) => task.id === job.task_id);
+                job.dimension = task.dimension;
+                job.data_compressed_chunk_type = task.data_compressed_chunk_type;
+                job.data_chunk_size = task.data_chunk_size;
+                job.bug_tracker = task.bug_tracker;
+                job.mode = task.mode;
+                job.labels = task.labels;
+            }
 
             return (
-                jobs[0] || {
+                jobs ? {
+                    results: jobs,
+                    count: jobs.length,
+                } : {
                     detail: 'Not found.',
                 }
             );
         }
 
         async function saveJob(id, jobData) {
-            const object = tasksDummyData.results
-                .reduce((acc, task) => {
-                    for (const segment of task.segments) {
-                        for (const job of segment.jobs) {
-                            acc.push(job);
-                        }
-                    }
-
-                    return acc;
-                }, [])
+            const object = jobsDummyData.results
                 .filter((job) => job.id === id)[0];
 
             for (const prop in jobData) {
@@ -266,7 +361,7 @@ class ServerProxy {
                 }
             }
 
-            return getJobs({ id });
+            return (await getJobs({ id })).results[0];
         }
 
         async function getUsers() {
@@ -278,15 +373,57 @@ class ServerProxy {
         }
 
         async function getPreview() {
-            return 'DUMMY_IMAGE';
+            return null;
         }
 
         async function getData() {
             return 'DUMMY_IMAGE';
         }
 
-        async function getMeta(tid) {
-            return JSON.parse(JSON.stringify(frameMetaDummyData[tid]));
+        async function getMeta(session, id) {
+            if (session !== 'job') {
+                const task = tasksDummyData.results.find((task) => task.id === id);
+                const jobs = jobsDummyData.results.filter((job) => job.task_id === id);
+                const jobsMeta = jobs.map((job) => frameMetaDummyData[job.id]).flat();
+                let framesMeta = jobsMeta.map((jobMeta) => jobMeta.frames);
+                if (task.mode === 'interpolation') {
+                    framesMeta = [framesMeta[0]];
+                }
+
+                return {
+                    chunk_size: jobsMeta[0].chunk_size                    ,
+                    size: task.size,
+                    image_quality: task.image_quality,
+                    start_frame: task.start_frame,
+                    stop_frame: task.stop_frame,
+                    frames: framesMeta,
+                    deleted_frames: [],
+                    included_frames: [],
+                };
+            }
+
+            return JSON.parse(JSON.stringify(frameMetaDummyData[id]));
+        }
+
+        async function saveMeta(session, jid, meta) {
+            if (session !== 'job') {
+                throw new Error('not implemented test');
+            }
+            const object = frameMetaDummyData[jid];
+            for (const prop in meta) {
+                if (
+                    Object.prototype.hasOwnProperty.call(meta, prop) &&
+                    Object.prototype.hasOwnProperty.call(object, prop)
+                ) {
+                    if (prop === 'labels') {
+                        object[prop] = meta[prop].filter((label) => !label.deleted);
+                    } else {
+                        object[prop] = meta[prop];
+                    }
+                }
+            }
+
+            return getMeta(jid);
         }
 
         async function getAnnotations(session, id) {
@@ -387,6 +524,71 @@ class ServerProxy {
             }
         }
 
+        async function getWebhooks(filter = '') {
+            const queries = QueryStringToJSON(filter);
+            const result = webhooksDummyData.results.filter((item) => {
+                for (const key in queries) {
+                    if (Object.prototype.hasOwnProperty.call(queries, key)) {
+                        if (queries[key] !== item[key]) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            });
+            return result;
+        }
+
+        async function createWebhook(webhookData) {
+            const id = Math.max(...webhooksDummyData.results.map((item) => item.id)) + 1;
+            webhooksDummyData.results.push({
+                id,
+                description: webhookData.description,
+                target_url: webhookData.target_url,
+                content_type: webhookData.content_type,
+                secret: webhookData.secret,
+                enable_ssl: webhookData.enable_ssl,
+                is_active: webhookData.is_active,
+                events: webhookData.events,
+                organization_id: webhookData.organization_id ? webhookData.organization_id : null,
+                project_id: webhookData.project_id ? webhookData.project_id : null,
+                type: webhookData.type,
+                owner: { id: 1 },
+                created_date: '2022-09-23T06:29:12.337276Z',
+                updated_date: '2022-09-23T06:29:12.337276Z',
+            });
+
+            const result = await getWebhooks(`?id=${id}`);
+            return result[0];
+        }
+
+        async function updateWebhook(webhookID, webhookData) {
+            const webhook = webhooksDummyData.results.find((item) => item.id === webhookID);
+            if (webhook) {
+                for (const prop in webhookData) {
+                    if (
+                        Object.prototype.hasOwnProperty.call(webhookData, prop) &&
+                            Object.prototype.hasOwnProperty.call(webhook, prop)
+                    ) {
+                        webhook[prop] = webhookData[prop];
+                    }
+                }
+            }
+            return webhook;
+        }
+
+        async function receiveWebhookEvents(type) {
+            return webhooksEventsDummyData[type]?.events;
+        }
+
+        async function deleteWebhook(webhookID) {
+            const webhooks = webhooksDummyData.results;
+            const webhookIdx = webhooks.findIndex((item) => item.id === webhookID);
+            if (webhookIdx !== -1) {
+                webhooks.splice(webhookIdx);
+            }
+        }
+
         Object.defineProperties(
             this,
             Object.freeze({
@@ -418,6 +620,16 @@ class ServerProxy {
                         save: saveTask,
                         create: createTask,
                         delete: deleteTask,
+                        getPreview: getPreview,
+                    }),
+                    writable: false,
+                },
+
+                labels: {
+                    value: Object.freeze({
+                        get: getLabels,
+                        delete: deleteLabel,
+                        update: updateLabel,
                     }),
                     writable: false,
                 },
@@ -426,6 +638,7 @@ class ServerProxy {
                     value: Object.freeze({
                         get: getJobs,
                         save: saveJob,
+                        getPreview: getPreview,
                     }),
                     writable: false,
                 },
@@ -442,6 +655,7 @@ class ServerProxy {
                     value: Object.freeze({
                         getData,
                         getMeta,
+                        saveMeta,
                         getPreview,
                     }),
                     writable: false,
@@ -460,6 +674,17 @@ class ServerProxy {
                         update: updateCloudStorage,
                         create: createCloudStorage,
                         delete: deleteCloudStorage,
+                    }),
+                    writable: false,
+                },
+
+                webhooks: {
+                    value: Object.freeze({
+                        get: getWebhooks,
+                        create: createWebhook,
+                        update: updateWebhook,
+                        delete: deleteWebhook,
+                        events: receiveWebhookEvents,
                     }),
                     writable: false,
                 },

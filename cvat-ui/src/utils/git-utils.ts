@@ -1,11 +1,11 @@
 // Copyright (C) 2019-2022 Intel Corporation
+// Copyright (C) 2023 CVAT.ai Corporation
 //
 // SPDX-License-Identifier: MIT
 
-import getCore from 'cvat-core-wrapper';
+import { getCore } from 'cvat-core-wrapper';
 
 const core = getCore();
-const baseURL = core.config.backendAPI.slice(0, -7);
 
 interface GitPlugin {
     name: string;
@@ -42,27 +42,27 @@ interface ReposData {
     lfs: boolean
 }
 
-function waitForClone(cloneResponse: any): Promise<void> {
+function waitForClone({ data: cloneResponse }: any): Promise<void> {
     return new Promise((resolve, reject): void => {
         async function checkCallback(): Promise<void> {
             core.server
-                .request(`${baseURL}/git/repository/check/${cloneResponse.rq_id}`, {
+                .request(`/git/repository/check/${cloneResponse.rq_id}`, {
                     method: 'GET',
                 })
-                .then((response: any): void => {
-                    if (['queued', 'started'].includes(response.status)) {
+                .then(({ data }: any): void => {
+                    if (['queued', 'started'].includes(data.status)) {
                         setTimeout(checkCallback, 1000);
-                    } else if (response.status === 'finished') {
+                    } else if (data.status === 'finished') {
                         resolve();
-                    } else if (response.status === 'failed') {
+                    } else if (data.status === 'failed') {
                         let message = 'Repository status check failed. ';
-                        if (response.stderr) {
-                            message += response.stderr;
+                        if (data.stderr) {
+                            message += data.stderr;
                         }
 
                         reject(message);
                     } else {
-                        const message = `Repository status check returned the status "${response.status}"`;
+                        const message = `Repository status check returned the status "${data.status}"`;
                         reject(message);
                     }
                 })
@@ -88,7 +88,7 @@ async function cloneRepository(this: any, plugin: GitPlugin, createdTask: any): 
             }
 
             core.server
-                .request(`${baseURL}/git/repository/create/${createdTask.id}`, {
+                .request(`/git/repository/create/${createdTask.id}`, {
                     method: 'POST',
                     headers: {
                         'Content-type': 'application/json',
@@ -143,9 +143,9 @@ export function registerGitPlugin(): void {
 }
 
 export async function getReposData(tid: number): Promise<ReposData | null> {
-    const response = await core.server.request(`${baseURL}/git/repository/get/${tid}`, {
+    const response = (await core.server.request(`/git/repository/get/${tid}`, {
         method: 'GET',
-    });
+    })).data;
 
     if (!response.url.value) {
         return null;
@@ -165,15 +165,15 @@ export async function getReposData(tid: number): Promise<ReposData | null> {
 export function syncRepos(tid: number): Promise<void> {
     return new Promise((resolve, reject): void => {
         core.server
-            .request(`${baseURL}/git/repository/push/${tid}`, {
+            .request(`/git/repository/push/${tid}`, {
                 method: 'GET',
             })
-            .then((syncResponse: any): void => {
+            .then(({ data: syncResponse }: any): void => {
                 async function checkSync(): Promise<void> {
                     const id = syncResponse.rq_id;
-                    const response = await core.server.request(`${baseURL}/git/repository/check/${id}`, {
+                    const response = (await core.server.request(`/git/repository/check/${id}`, {
                         method: 'GET',
-                    });
+                    })).data;
 
                     if (['queued', 'started'].includes(response.status)) {
                         setTimeout(checkSync, 1000);
@@ -199,8 +199,11 @@ export function syncRepos(tid: number): Promise<void> {
 export async function changeRepo(taskId: number, type: string, value: any): Promise<void> {
     return new Promise((resolve, reject): void => {
         core.server
-            .request(`${baseURL}/git/repository/${taskId}`, {
+            .request(`/git/repository/${taskId}`, {
                 method: 'PATCH',
+                headers: {
+                    'Content-type': 'application/json',
+                },
                 data: JSON.stringify({
                     type,
                     value,

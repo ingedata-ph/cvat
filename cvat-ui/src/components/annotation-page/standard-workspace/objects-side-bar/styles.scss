@@ -1,4 +1,5 @@
-// Copyright (C) 2020-2021 Intel Corporation
+// Copyright (C) 2020-2022 Intel Corporation
+// Copyright (C) 2022 CVAT.ai Corporation
 //
 // SPDX-License-Identifier: MIT
 
@@ -110,18 +111,48 @@
 .cvat-objects-sidebar-issue-item {
     width: 100%;
     margin: 1px;
-    padding: 2px;
+    padding: $grid-unit-size;
+    border-left: 3px solid #ff7300;
+    border-bottom: 1px solid $border-color-1;
 
     &:hover {
-        padding: 0;
-
-        > .ant-alert {
-            border-width: 3px;
-        }
+        border-left: 4px solid #ff7300;
     }
 
     > .ant-alert.ant-alert-with-description {
         padding: $grid-unit-size $grid-unit-size $grid-unit-size $grid-unit-size * 8;
+    }
+
+    p {
+        margin-bottom: 0;
+    }
+}
+
+.cvat-objects-sidebar-conflict-item {
+    width: 100%;
+    margin: 1px;
+    padding: $grid-unit-size;
+    border-left: 3px solid #e10602;
+    border-bottom: 1px solid $border-color-1;
+
+    p {
+        margin-bottom: 0;
+    }
+}
+
+.cvat-objects-sidebar-warning-item {
+    @extend .cvat-objects-sidebar-issue-item;
+}
+
+.cvat-objects-sidebar-item-active {
+    border-left-width: 4px;
+}
+
+.cvat-objects-sidebar-issue-resolved {
+    border-left: 3px solid $border-color-1;
+
+    &:hover {
+        border-left: 4px solid $border-color-1;
     }
 }
 
@@ -150,12 +181,20 @@
             }
         }
     }
+
+    .cvat-objects-sidebar-show-ground-truth {
+        margin-right: $grid-unit-size;
+    }
 }
 
 .cvat-objects-sidebar-states-list {
     background-color: $background-color-2;
     height: calc(100% - 50px);
     overflow-y: auto;
+}
+
+.cvat-objects-sidebar-z-layer-mark {
+    text-align: center;
 }
 
 .cvat-objects-sidebar-state-item.cvat-objects-sidebar-state-active-item {
@@ -208,9 +247,10 @@
     }
 }
 
-.cvat-objects-sidebar-state-item-collapse {
-    border: 0;
-    background: inherit;
+.cvat-objects-sidebar-state-item-collapse,
+.cvat-objects-sidebar-state-item-elements-collapse {
+    border: unset;
+    background: unset;
     width: 100%;
 
     > .ant-collapse-item {
@@ -218,7 +258,7 @@
         border: none;
 
         > .ant-collapse-header {
-            background: inherit;
+            align-items: baseline;
             padding-top: 2px;
             padding-bottom: 2px;
 
@@ -230,9 +270,10 @@
 
         > .ant-collapse-content {
             > .ant-collapse-content-box {
-                padding: 3px;
+                padding: 0;
             }
 
+            border: unset;
             background: inherit;
         }
     }
@@ -413,7 +454,7 @@
     top: 8px;
     left: 50%;
     border-radius: 6px;
-    border: 1px solid $border-color-3;
+    border: 1px solid $border-color-1;
     z-index: 100;
     padding: $grid-unit-size * 0.5 $grid-unit-size * 2 $grid-unit-size * 0.5 $grid-unit-size * 0.5;
 
@@ -421,5 +462,30 @@
         position: static;
         margin-top: 4px;
         pointer-events: none;
+    }
+}
+
+.cvat-objects-sidebar-state-item-elements {
+    padding: $grid-unit-size * 0.5;
+    border: 1px solid $object-item-border-color;
+    border-bottom: 0;
+    padding-top: 1px;
+    padding-left: 1px;
+    padding-right: 1px;
+    padding-bottom: 2px;
+
+    &:last-child {
+        border-bottom: 1px solid $object-item-border-color;
+    }
+}
+
+.cvat-objects-sidebar-state-item-elements.cvat-objects-sidebar-state-active-element {
+    border: 2px dashed $object-item-border-color;
+    padding: 0;
+}
+
+.cvat-objects-sidebar-show-ground-truth-active {
+    path {
+        fill: #1890ff;
     }
 }

@@ -1,4 +1,4 @@
-# Copyright (C) 2019 Intel Corporation
+# Copyright (C) 2019-2022 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 #
@@ -14,7 +14,7 @@ import subprocess
 def get_version(version):
     """Return a PEP 440-compliant version number from VERSION."""
     # Now build the two parts of the version number:
-    # main = X.Y[.Z]
+    # main = X.Y.Z
     # sub = .devN - for pre-alpha releases
     #     | {a|b|rc}N - for alpha, beta, and rc releases
 
@@ -33,9 +33,8 @@ def get_version(version):
     return main + sub
 
 def get_main_version(version):
-    """Return main version (X.Y[.Z]) from VERSION."""
-    parts = 2 if version[2] == 0 else 3
-    return '.'.join(str(x) for x in version[:parts])
+    """Return main version (X.Y.Z) from VERSION."""
+    return '.'.join(str(x) for x in version[:3])
 
 def get_git_changeset():
     """Return a numeric identifier of the latest git changeset.
@@ -45,10 +44,10 @@ def get_git_changeset():
     so it's sufficient for generating the development version numbers.
     """
     repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    git_log = subprocess.Popen(
-        'git log --pretty=format:%ct --quiet -1 HEAD',
+    git_log = subprocess.Popen( # nosec: B603, B607
+        ['git', 'log', '--pretty=format:%ct', '--quiet', '-1', 'HEAD'],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        shell=True, cwd=repo_dir, universal_newlines=True,
+        cwd=repo_dir, universal_newlines=True,
     )
     timestamp = git_log.communicate()[0]
     try:
@@ -56,4 +55,3 @@ def get_git_changeset():
     except ValueError:
         return None
     return timestamp.strftime('%Y%m%d%H%M%S')
-

@@ -1,4 +1,5 @@
 // Copyright (C) 2019-2022 Intel Corporation
+// Copyright (C) 2022 CVAT.ai Corporation
 //
 // SPDX-License-Identifier: MIT
 
@@ -8,6 +9,7 @@ import {
     MergeData,
     SplitData,
     GroupData,
+    MasksEditData,
     InteractionData as _InteractionData,
     InteractionResult as _InteractionResult,
     CanvasModel,
@@ -16,6 +18,7 @@ import {
     CuboidDrawingMethod,
     Configuration,
     Geometry,
+    HighlightSeverity as _HighlightSeverity,
 } from './canvasModel';
 import { Master } from './master';
 import { CanvasController, CanvasControllerImpl } from './canvasController';
@@ -30,7 +33,9 @@ interface Canvas {
     html(): HTMLDivElement;
     setup(frameData: any, objectStates: any[], zLayer?: number): void;
     setupIssueRegions(issueRegions: Record<number, { hidden: boolean; points: number[] }>): void;
-    activate(clientID: number | null, attributeID?: number): void;
+    setupConflictRegions(clientID: number): number[];
+    activate(clientID: number | null, attributeID?: number): number[];
+    highlight(clientIDs: number[] | null, severity: HighlightSeverity | null): void;
     rotate(rotationAngle: number): void;
     focus(clientID: number, padding?: number): void;
     fit(): void;
@@ -38,6 +43,7 @@ interface Canvas {
 
     interact(interactionData: InteractionData): void;
     draw(drawData: DrawData): void;
+    edit(editData: MasksEditData): void;
     group(groupData: GroupData): void;
     split(splitData: SplitData): void;
     merge(mergeData: MergeData): void;
@@ -81,6 +87,10 @@ class CanvasImpl implements Canvas {
         this.model.setupIssueRegions(issueRegions);
     }
 
+    public setupConflictsRegions(clientID: number): number[] {
+        return this.view.setupConflictsRegions(clientID);
+    }
+
     public fitCanvas(): void {
         this.model.fitCanvas(this.view.html().clientWidth, this.view.html().clientHeight);
     }
@@ -105,6 +115,10 @@ class CanvasImpl implements Canvas {
         this.model.activate(clientID, attributeID);
     }
 
+    public highlight(clientIDs: number[] | null, severity: HighlightSeverity | null = null): void {
+        this.model.highlight(clientIDs, severity);
+    }
+
     public rotate(rotationAngle: number): void {
         this.model.rotate(rotationAngle);
     }
@@ -127,6 +141,10 @@ class CanvasImpl implements Canvas {
 
     public draw(drawData: DrawData): void {
         this.model.draw(drawData);
+    }
+
+    public edit(editData: MasksEditData): void {
+        this.model.edit(editData);
     }
 
     public split(splitData: SplitData): void {
@@ -172,6 +190,7 @@ class CanvasImpl implements Canvas {
 
 export type InteractionData = _InteractionData;
 export type InteractionResult = _InteractionResult;
+export type HighlightSeverity = _HighlightSeverity;
 
 export {
     CanvasImpl as Canvas, CanvasVersion, RectDrawingMethod, CuboidDrawingMethod, Mode as CanvasMode,

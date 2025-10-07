@@ -1,4 +1,5 @@
 // Copyright (C) 2020-2022 Intel Corporation
+// Copyright (C) 2023 CVAT.ai Corporation
 //
 // SPDX-License-Identifier: MIT
 
@@ -12,18 +13,52 @@ import Modal from 'antd/lib/modal';
 import { Store } from 'antd/lib/form/interface';
 import Paragraph from 'antd/lib/typography/Paragraph';
 
+import { SerializedLabel, SerializedAttribute } from 'cvat-core-wrapper';
 import CVATTooltip from 'components/common/cvat-tooltip';
-import {
-    Label, Attribute, validateParsedLabel, idGenerator,
-} from './common';
+import { validateParsedLabel, idGenerator, LabelOptColor } from './common';
+
+function replaceTrailingCommas(value: string): string {
+    return value.replace(/,{1}[\s]*}/g, '}');
+}
+
+function transformSkeletonSVG(value: string): string {
+    // converts all data-label-id="<id>" to corresponding data-label-name="<name>" for skeletons SVG code
+    // the function guarantees successful result only if all labels configuration is passed
+    // or if the whole configuration for one label is passed (with sublabels, etc)
+
+    let data = value;
+    const idNameMapping: Record<string, string> = {};
+    try {
+        const parsed = JSON.parse(data.trim().startsWith('[') ? data : `[${data}]`);
+        for (const label of parsed) {
+            for (const sublabel of (label.sublabels || [])) {
+                idNameMapping[sublabel.id] = sublabel.name;
+            }
+        }
+    } catch (error: any) {
+        // unsuccessful parsing, return value as is
+        return value;
+    }
+
+    const matches = data.matchAll(/data-label-id=&quot;([\d]+)&quot;/g);
+    for (const match of matches) {
+        if (idNameMapping[match[1]]) {
+            data = data.replace(
+                match[0], `data-label-name=&quot;${idNameMapping[match[1]]}&quot;`,
+            );
+        }
+    }
+
+    return data;
+}
 
 function validateLabels(_: RuleObject, value: string): Promise<void> {
     try {
-        const parsed = JSON.parse(value);
+        const parsed = JSON.parse(replaceTrailingCommas(value));
         if (!Array.isArray(parsed)) {
             return Promise.reject(new Error('Field is expected to be a JSON array'));
         }
-        const labelNames = parsed.map((label: Label) => label.name);
+        const labelNames = parsed.map((label: SerializedLabel) => label.name);
         if (new Set(labelNames).size !== labelNames.length) {
             return Promise.reject(new Error('Label names must be unique for the task'));
         }
@@ -43,17 +78,18 @@ function validateLabels(_: RuleObject, value: string): Promise<void> {
 }
 
 interface Props {
-    labels: Label[];
-    onSubmit: (labels: Label[]) => void;
+    labels: LabelOptColor[];
+    onSubmit: (labels: LabelOptColor[]) => void;
 }
 
-function convertLabels(labels: Label[]): Label[] {
+function convertLabels(labels: LabelOptColor[]): LabelOptColor[] {
     return labels.map(
-        (label: any): Label => ({
+        (label: LabelOptColor): LabelOptColor => ({
             ...label,
-            id: label.id < 0 ? undefined : label.id,
+            id: (label.id as number) < 0 ? undefined : label.id,
+            svg: label.svg ? label.svg.replaceAll('"', '&quot;') : undefined,
             attributes: label.attributes.map(
-                (attribute: any): Attribute => ({
+                (attribute: any): SerializedAttribute => ({
                     ...attribute,
                     id: attribute.id < 0 ? undefined : attribute.id,
                 }),
@@ -81,11 +117,16 @@ export default class RawViewer extends React.PureComponent<Props> {
 
     private handleSubmit = (values: Store): void => {
         const { onSubmit, labels } = this.props;
-        const parsed = JSON.parse(values.labels);
+        const parsed = JSON.parse(
+            replaceTrailingCommas(values.labels),
+        ) as SerializedLabel[];
 
         const labelIDs: number[] = [];
         const attrIDs: number[] = [];
         for (const label of parsed) {
+            if (label.svg) {
+                label.svg = label.svg.replaceAll('&quot;', '"');
+            }
             label.id = label.id || idGenerator();
             if (label.id >= 0) {
                 labelIDs.push(label.id);
@@ -98,10 +139,18 @@ export default class RawViewer extends React.PureComponent<Props> {
             }
         }
 
-        const deletedLabels = labels.filter((_label: Label) => _label.id >= 0 && !labelIDs.includes(_label.id));
+        const deletedLabels = labels
+            .filter((_label: LabelOptColor) => {
+                const labelID = _label.id as number;
+                return labelID >= 0 && !labelIDs.includes(labelID);
+            });
+
         const deletedAttributes = labels
-            .reduce((acc: Attribute[], _label) => [...acc, ..._label.attributes], [])
-            .filter((_attr: Attribute) => _attr.id >= 0 && !attrIDs.includes(_attr.id));
+            .reduce((acc: SerializedAttribute[], _label) => [...acc, ..._label.attributes], [])
+            .filter((_attr: SerializedAttribute) => {
+                const attrID = _attr.id as number;
+                return attrID >= 0 && !attrIDs.includes(attrID);
+            });
 
         if (deletedLabels.length || deletedAttributes.length) {
             Modal.confirm({
@@ -114,7 +163,9 @@ export default class RawViewer extends React.PureComponent<Props> {
                                 Following labels are going to be removed:
                                 <div className='cvat-modal-confirm-content-remove-existing-labels'>
                                     {deletedLabels
-                                        .map((_label: Label) => <Tag color={_label.color}>{_label.name}</Tag>)}
+                                        .map((_label: LabelOptColor): JSX.Element => (
+                                            <Tag key={_label.id as number} color={_label.color}>{_label.name}</Tag>
+                                        ))}
                                 </div>
 
                             </Paragraph>
@@ -123,7 +174,9 @@ export default class RawViewer extends React.PureComponent<Props> {
                             <Paragraph>
                                 Following attributes are going to be removed:
                                 <div className='cvat-modal-confirm-content-remove-existing-attributes'>
-                                    {deletedAttributes.map((_attr: Attribute) => <Tag>{_attr.name}</Tag>)}
+                                    {deletedAttributes.map((_attr: SerializedAttribute) => (
+                                        <Tag key={_attr.id as number}>{_attr.name}</Tag>
+                                    ))}
                                 </div>
                             </Paragraph>
                         ) : null}
@@ -153,7 +206,7 @@ export default class RawViewer extends React.PureComponent<Props> {
                 <Form.Item name='labels' initialValue={textLabels} rules={[{ validator: validateLabels }]}>
                     <Input.TextArea
                         onPaste={(e: React.ClipboardEvent) => {
-                            const data = e.clipboardData.getData('text');
+                            const data = transformSkeletonSVG(e.clipboardData.getData('text'));
                             const element = window.document.getElementsByClassName('cvat-raw-labels-viewer')[0] as HTMLTextAreaElement;
                             if (element && this.formRef.current) {
                                 const { selectionStart, selectionEnd } = element;
@@ -180,7 +233,12 @@ export default class RawViewer extends React.PureComponent<Props> {
                 <Row justify='start' align='middle'>
                     <Col>
                         <CVATTooltip title='Save labels'>
-                            <Button style={{ width: '150px' }} type='primary' htmlType='submit'>
+                            <Button
+                                className='cvat-submit-raw-labels-conf-button'
+                                style={{ width: '150px' }}
+                                type='primary'
+                                htmlType='submit'
+                            >
                                 Done
                             </Button>
                         </CVATTooltip>
@@ -188,6 +246,7 @@ export default class RawViewer extends React.PureComponent<Props> {
                     <Col offset={1}>
                         <CVATTooltip title='Reset all changes'>
                             <Button
+                                className='cvat-reset-raw-labels-conf-button'
                                 type='primary'
                                 danger
                                 style={{ width: '150px' }}

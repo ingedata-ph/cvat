@@ -1,16 +1,19 @@
 // Copyright (C) 2021-2022 Intel Corporation
+// Copyright (C) 2023 CVAT.ai Corporation
 //
 // SPDX-License-Identifier: MIT
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect } from 'react';
 import { DeleteOutlined, PlusCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import Button from 'antd/lib/button';
 import Col from 'antd/lib/col';
 import Form from 'antd/lib/form';
+import { FormListFieldData, FormListOperation } from 'antd/lib/form/FormList';
 import Input from 'antd/lib/input';
 import Row from 'antd/lib/row';
-import notification from 'antd/lib/notification';
 import Tooltip from 'antd/lib/tooltip';
+import config from 'config';
+import { Alert } from 'antd';
 
 interface Props {
     form: any;
@@ -20,8 +23,7 @@ interface Props {
 
 export default function ManifestsManager(props: Props): JSX.Element {
     const { form, manifestNames, setManifestNames } = props;
-    const maxManifestsCount = useRef(5);
-    const [limitingAddingManifestNotification, setLimitingAddingManifestNotification] = useState(false);
+    const { DATASET_MANIFEST_GUIDE_URL } = config;
 
     const updateManifestFields = (): void => {
         const newManifestFormItems = manifestNames.map((name, idx) => ({
@@ -37,15 +39,6 @@ export default function ManifestsManager(props: Props): JSX.Element {
         updateManifestFields();
     }, [manifestNames]);
 
-    useEffect(() => {
-        if (limitingAddingManifestNotification) {
-            notification.warning({
-                message: `Unable to add manifest. The maximum number of files is ${maxManifestsCount.current}`,
-                className: 'cvat-notification-limiting-adding-manifest',
-            });
-        }
-    }, [limitingAddingManifestNotification]);
-
     const onChangeManifestPath = (manifestName: string | undefined, manifestId: number): void => {
         if (manifestName !== undefined) {
             setManifestNames(manifestNames.map((name, idx) => (idx !== manifestId ? name : manifestName)));
@@ -53,24 +46,16 @@ export default function ManifestsManager(props: Props): JSX.Element {
     };
 
     const onDeleteManifestItem = (key: number): void => {
-        if (maxManifestsCount.current === manifestNames.length && limitingAddingManifestNotification) {
-            setLimitingAddingManifestNotification(false);
-        }
         setManifestNames(manifestNames.filter((name, idx) => idx !== key));
     };
 
     const onAddManifestItem = (): void => {
-        if (maxManifestsCount.current <= manifestNames.length) {
-            setLimitingAddingManifestNotification(true);
-        } else {
-            setManifestNames(manifestNames.concat(['']));
-        }
+        setManifestNames(manifestNames.concat(['']));
     };
 
     return (
         <>
             <Form.Item
-                name='manifests'
                 className='cvat-manifests-manager-form-item'
                 label={(
                     <>
@@ -80,18 +65,19 @@ export default function ManifestsManager(props: Props): JSX.Element {
                                 type='link'
                                 target='_blank'
                                 className='cvat-cloud-storage-help-button'
-                                href='https://openvinotoolkit.github.io/cvat/docs/manual/advanced/dataset_manifest/'
+                                href={DATASET_MANIFEST_GUIDE_URL}
                             >
                                 <QuestionCircleOutlined />
                             </Button>
                         </Tooltip>
                     </>
                 )}
-                rules={[{ required: true, message: 'Please, specify at least one manifest file' }]}
             />
-            <Form.List name='manifests'>
+            <Form.List
+                name='manifests'
+            >
                 {
-                    (fields) => (
+                    (fields: FormListFieldData[], _: FormListOperation, { errors }: { errors: React.ReactNode[] }) => (
                         <>
                             {fields.map((field, idx): JSX.Element => (
                                 <Form.Item key={idx} shouldUpdate>
@@ -115,7 +101,11 @@ export default function ManifestsManager(props: Props): JSX.Element {
                                         </Col>
                                         <Col>
                                             <Form.Item>
-                                                <Button type='link' onClick={() => onDeleteManifestItem(idx)}>
+                                                <Button
+                                                    className='cvat-delete-manifest-button'
+                                                    type='link'
+                                                    onClick={() => onDeleteManifestItem(idx)}
+                                                >
                                                     <DeleteOutlined />
                                                 </Button>
                                             </Form.Item>
@@ -123,6 +113,7 @@ export default function ManifestsManager(props: Props): JSX.Element {
                                     </Row>
                                 </Form.Item>
                             ))}
+                            <Form.ErrorList errors={errors} />
                         </>
                     )
                 }
@@ -135,6 +126,13 @@ export default function ManifestsManager(props: Props): JSX.Element {
                     </Button>
                 </Col>
             </Row>
+            {!manifestNames.length && (
+                <Row>
+                    <Col>
+                        <Alert type='info' message='We highly recommend attaching a manifest file to reduce the number of requests to the bucket.' />
+                    </Col>
+                </Row>
+            )}
         </>
     );
 }

@@ -1,15 +1,18 @@
-// Copyright (C) 2020-2021 Intel Corporation
+// Copyright (C) 2020-2022 Intel Corporation
+// Copyright (C) 2022 CVAT.ai Corporation
 //
 // SPDX-License-Identifier: MIT
 
 // Setup mock for a server
 jest.mock('../../src/server-proxy', () => {
-    const mock = require('../mocks/server-proxy.mock');
-    return mock;
+    return {
+        __esModule: true,
+        default: require('../mocks/server-proxy.mock'),
+    };
 });
 
 // Initialize api
-window.cvat = require('../../src/api');
+window.cvat = require('../../src/api').default;
 
 const { Job } = require('../../src/session');
 
@@ -17,7 +20,7 @@ const { Job } = require('../../src/session');
 describe('Feature: get a list of jobs', () => {
     test('get jobs by a task id', async () => {
         const result = await window.cvat.jobs.get({
-            taskID: 3,
+            filter: JSON.stringify({ and: [{ '==': [{ var: 'task_id' }, 3] }] }),
         });
         expect(Array.isArray(result)).toBeTruthy();
         expect(result).toHaveLength(2);
@@ -31,7 +34,7 @@ describe('Feature: get a list of jobs', () => {
 
     test('get jobs by an unknown task id', async () => {
         const result = await window.cvat.jobs.get({
-            taskID: 50,
+            filter: JSON.stringify({ and: [{ '==': [{ var: 'task_id' }, 50] }] }),
         });
         expect(Array.isArray(result)).toBeTruthy();
         expect(result).toHaveLength(0);
@@ -48,7 +51,7 @@ describe('Feature: get a list of jobs', () => {
 
     test('get jobs by an unknown job id', async () => {
         const result = await window.cvat.jobs.get({
-            taskID: 50,
+            jobID: 50,
         });
         expect(Array.isArray(result)).toBeTruthy();
         expect(result).toHaveLength(0);
@@ -90,9 +93,7 @@ describe('Feature: get a list of jobs', () => {
 
 describe('Feature: save job', () => {
     test('save stage and state of a job', async () => {
-        const result = await window.cvat.jobs.get({
-            jobID: 1,
-        });
+        const result = await window.cvat.jobs.get({ jobID: 1 });
 
         result[0].stage = 'validation';
         result[0].state = 'new';

@@ -1,25 +1,21 @@
 // Copyright (C) 2021-2022 Intel Corporation
+// Copyright (C) 2023 CVAT.ai Corporation
 //
 // SPDX-License-Identifier: MIT
 
-export interface Attribute {
-    id: number;
-    name: string;
-    input_type: string;
-    mutable: boolean;
-    values: string[];
+import { SerializedLabel, SerializedAttribute } from 'cvat-core-wrapper';
+
+export interface SkeletonConfiguration {
+    type: 'skeleton';
+    svg: string;
+    sublabels: SerializedLabel[];
 }
 
-export interface Label {
-    name: string;
-    color: string;
-    id: number;
-    attributes: Attribute[];
-}
+export type LabelOptColor = SerializedLabel;
 
 let id = 0;
 
-function validateParsedAttribute(attr: Attribute): void {
+function validateParsedAttribute(attr: SerializedAttribute): void {
     if (typeof attr.name !== 'string') {
         throw new Error(`Type of attribute name must be a string. Got value ${attr.name}`);
     }
@@ -53,7 +49,7 @@ function validateParsedAttribute(attr: Attribute): void {
     }
 }
 
-export function validateParsedLabel(label: Label): void {
+export function validateParsedLabel(label: SerializedLabel): void {
     if (typeof label.name !== 'string') {
         throw new Error(`Type of label name must be a string. Got value ${label.name}`);
     }
@@ -96,4 +92,49 @@ export function equalArrayHead(arr1: string[], arr2: string[]): boolean {
     }
 
     return true;
+}
+
+export function toSVGCoord(svg: SVGSVGElement, coord: number[], raiseError = false): number[] {
+    const result = [];
+    const ctm = svg.getScreenCTM();
+
+    if (!ctm) {
+        if (raiseError) throw new Error('Screen CTM is null');
+        return coord;
+    }
+
+    const inversed = ctm.inverse();
+    if (!inversed) {
+        if (raiseError) throw new Error('Inversed screen CTM is null');
+        return coord;
+    }
+
+    for (let i = 0; i < coord.length; i += 2) {
+        let point = svg.createSVGPoint();
+        point.x = coord[i];
+        point.y = coord[i + 1];
+        point = point.matrixTransform(inversed);
+        result.push(point.x, point.y);
+    }
+
+    return result;
+}
+
+export function fromSVGCoord(svg: SVGSVGElement, coord: number[], raiseError = false): number[] {
+    const result = [];
+    const ctm = svg.getCTM();
+    if (!ctm) {
+        if (raiseError) throw new Error('Inversed screen CTM is null');
+        return coord;
+    }
+
+    for (let i = 0; i < coord.length; i += 2) {
+        let point = svg.createSVGPoint();
+        point.x = coord[i];
+        point.y = coord[i + 1];
+        point = point.matrixTransform(ctm);
+        result.push(point.x, point.y);
+    }
+
+    return result;
 }

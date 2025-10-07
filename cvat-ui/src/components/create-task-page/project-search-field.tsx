@@ -1,4 +1,5 @@
-// Copyright (C) 2019-2021 Intel Corporation
+// Copyright (C) 2019-2022 Intel Corporation
+// Copyright (C) 2023 CVAT.ai Corporation
 //
 // SPDX-License-Identifier: MIT
 
@@ -6,7 +7,7 @@ import React, { useEffect, useState } from 'react';
 import Autocomplete from 'antd/lib/auto-complete';
 import { SelectValue } from 'antd/lib/select';
 
-import getCore from 'cvat-core-wrapper';
+import { getCore } from 'cvat-core-wrapper';
 
 const core = getCore();
 
@@ -79,6 +80,10 @@ export default function ProjectSearchField(props: Props): JSX.Element {
             setSearchPhrase('');
         }
     }, [value]);
+
+    useEffect(() => {
+        setProjects([]);
+    }, [filter]);
 
     return (
         <Autocomplete

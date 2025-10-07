@@ -12,7 +12,7 @@ import {
     closeJob as closeJobAction,
 } from 'actions/annotation-actions';
 
-import { CombinedState, Workspace } from 'reducers/interfaces';
+import { CombinedState, Workspace } from 'reducers';
 
 type OwnProps = RouteComponentProps<{
     tid: string;
@@ -49,7 +49,7 @@ function mapStateToProps(state: CombinedState, own: OwnProps): StateToProps {
     } = state;
 
     return {
-        job: jobID === requestedId ? job : null,
+        job: jobID === requestedId || (Number.isNaN(jobID) && Number.isNaN(requestedId)) ? job : null,
         fetching,
         workspace,
         frameNumber,
@@ -62,7 +62,7 @@ function mapDispatchToProps(dispatch: any, own: OwnProps): DispatchToProps {
     const jobID = +params.jid;
     const searchParams = new URLSearchParams(window.location.search);
     const initialFilters: object[] = [];
-    let initialFrame = 0;
+    let initialFrame: number | null = null;
 
     if (searchParams.has('frame')) {
         const searchFrame = +(searchParams.get('frame') as string);

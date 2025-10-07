@@ -1,4 +1,4 @@
-// Copyright (C) 2020-2021 Intel Corporation
+// Copyright (C) 2020-2022 Intel Corporation
 //
 // SPDX-License-Identifier: MIT
 
@@ -19,13 +19,14 @@ import Icon, {
 } from '@ant-design/icons';
 
 import CVATTooltip from 'components/common/cvat-tooltip';
-import { ObjectType, ShapeType } from 'reducers/interfaces';
+import { ObjectType, ShapeType } from 'reducers';
 import {
     ObjectOutsideIcon, FirstIcon, LastIcon, PreviousIcon, NextIcon,
 } from 'icons';
 
 interface Props {
     readonly: boolean;
+    parentID: number;
     objectType: ObjectType;
     shapeType: ShapeType;
     occluded: boolean;
@@ -232,7 +233,9 @@ function SwitchKeyframe(props: Props): JSX.Element {
 }
 
 function ItemButtonsComponent(props: Props): JSX.Element {
-    const { readonly, objectType, shapeType } = props;
+    const {
+        readonly, objectType, shapeType, parentID,
+    } = props;
 
     if (objectType === ObjectType.TRACK) {
         return (
@@ -252,7 +255,13 @@ function ItemButtonsComponent(props: Props): JSX.Element {
                             <NavigateLastKeyframe {...props} />
                         </Col>
                     </Row>
-                    {!readonly && (
+                    {readonly ? (
+                        <Row justify='space-around'>
+                            <Col>
+                                <SwitchHidden {...props} />
+                            </Col>
+                        </Row>
+                    ) : (
                         <Row justify='space-around'>
                             <Col>
                                 <SwitchOutside {...props} />
@@ -281,22 +290,46 @@ function ItemButtonsComponent(props: Props): JSX.Element {
         );
     }
 
-    if (readonly) {
-        return <div />;
-    }
-
-    if (objectType === ObjectType.TAG) {
+    if (objectType === ObjectType.SHAPE) {
         return (
             <Row align='middle' justify='space-around'>
                 <Col span={20} style={{ textAlign: 'center' }}>
-                    <Row justify='space-around'>
-                        <Col>
-                            <SwitchLock {...props} />
-                        </Col>
-                    </Row>
+                    { readonly ? (
+                        <Row justify='space-around'>
+                            <Col>
+                                <SwitchHidden {...props} />
+                            </Col>
+                        </Row>
+                    ) : (
+                        <Row justify='space-around'>
+                            { Number.isInteger(parentID) && (
+                                <Col>
+                                    <SwitchOutside {...props} />
+                                </Col>
+                            )}
+                            <Col>
+                                <SwitchLock {...props} />
+                            </Col>
+                            <Col>
+                                <SwitchOccluded {...props} />
+                            </Col>
+                            <Col>
+                                <SwitchHidden {...props} />
+                            </Col>
+                            {shapeType !== ShapeType.POINTS && (
+                                <Col>
+                                    <SwitchPinned {...props} />
+                                </Col>
+                            )}
+                        </Row>
+                    )}
                 </Col>
             </Row>
         );
+    }
+
+    if (readonly) {
+        return <div />;
     }
 
     return (
@@ -306,17 +339,6 @@ function ItemButtonsComponent(props: Props): JSX.Element {
                     <Col>
                         <SwitchLock {...props} />
                     </Col>
-                    <Col>
-                        <SwitchOccluded {...props} />
-                    </Col>
-                    <Col>
-                        <SwitchHidden {...props} />
-                    </Col>
-                    {shapeType !== ShapeType.POINTS && (
-                        <Col>
-                            <SwitchPinned {...props} />
-                        </Col>
-                    )}
                 </Row>
             </Col>
         </Row>

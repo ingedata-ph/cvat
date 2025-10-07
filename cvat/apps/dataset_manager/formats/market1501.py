@@ -1,9 +1,9 @@
-# Copyright (C) 2021 Intel Corporation
+# Copyright (C) 2021-2022 Intel Corporation
+# Copyright (C) 2022-2023 CVAT.ai Corporation
 #
 # SPDX-License-Identifier: MIT
 
 import zipfile
-from tempfile import TemporaryDirectory
 
 from datumaro.components.annotation import (AnnotationType, Label,
     LabelCategories)
@@ -50,7 +50,7 @@ class LabelAttrToAttr(ItemTransform):
     def transform_item(self, item):
         annotations = list(item.annotations)
         attributes = dict(item.attributes)
-        if self._label != None:
+        if self._label is not None:
             labels = [ann for ann in annotations
                 if ann.type == AnnotationType.label \
                     and ann.label == self._label]
@@ -61,21 +61,20 @@ class LabelAttrToAttr(ItemTransform):
 
 
 @exporter(name='Market-1501', ext='ZIP', version='1.0')
-def _export(dst_file, instance_data, save_images=False):
+def _export(dst_file, temp_dir, instance_data, save_images=False):
     dataset = Dataset.from_extractors(GetCVATDataExtractor(
         instance_data, include_images=save_images), env=dm_env)
-    with TemporaryDirectory() as temp_dir:
-        dataset.transform(LabelAttrToAttr, 'market-1501')
-        dataset.export(temp_dir, 'market1501', save_images=save_images)
-        make_zip_archive(temp_dir, dst_file)
+
+    dataset.transform(LabelAttrToAttr, label='market-1501')
+    dataset.export(temp_dir, 'market1501', save_images=save_images)
+    make_zip_archive(temp_dir, dst_file)
 
 @importer(name='Market-1501', ext='ZIP', version='1.0')
-def _import(src_file, instance_data, load_data_callback=None):
-    with TemporaryDirectory() as tmp_dir:
-        zipfile.ZipFile(src_file).extractall(tmp_dir)
+def _import(src_file, temp_dir, instance_data, load_data_callback=None, **kwargs):
+    zipfile.ZipFile(src_file).extractall(temp_dir)
 
-        dataset = Dataset.import_from(tmp_dir, 'market1501', env=dm_env)
-        dataset.transform(AttrToLabelAttr, 'market-1501')
-        if load_data_callback is not None:
-            load_data_callback(dataset, instance_data)
-        import_dm_annotations(dataset, instance_data)
+    dataset = Dataset.import_from(temp_dir, 'market1501', env=dm_env)
+    dataset.transform(AttrToLabelAttr, label='market-1501')
+    if load_data_callback is not None:
+        load_data_callback(dataset, instance_data)
+    import_dm_annotations(dataset, instance_data)

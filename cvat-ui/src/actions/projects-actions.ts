@@ -1,4 +1,5 @@
 // Copyright (C) 2019-2022 Intel Corporation
+// Copyright (C) 2022-2023 CVAT.ai Corporation
 //
 // SPDX-License-Identifier: MIT
 
@@ -6,11 +7,12 @@ import { Dispatch, ActionCreator } from 'redux';
 
 import { ActionUnion, createAction, ThunkAction } from 'utils/redux';
 import {
-    ProjectsQuery, TasksQuery, CombinedState, Indexable,
-} from 'reducers/interfaces';
+    ProjectsQuery, TasksQuery, CombinedState,
+} from 'reducers';
 import { getTasksAsync } from 'actions/tasks-actions';
 import { getCVATStore } from 'cvat-store';
-import getCore from 'cvat-core-wrapper';
+import { getCore } from 'cvat-core-wrapper';
+import { filterNull } from 'utils/filter-null';
 
 const cvat = getCore();
 
@@ -22,25 +24,19 @@ export enum ProjectsActionTypes {
     CREATE_PROJECT = 'CREATE_PROJECT',
     CREATE_PROJECT_SUCCESS = 'CREATE_PROJECT_SUCCESS',
     CREATE_PROJECT_FAILED = 'CREATE_PROJECT_FAILED',
-    UPDATE_PROJECT = 'UPDATE_PROJECT',
-    UPDATE_PROJECT_SUCCESS = 'UPDATE_PROJECT_SUCCESS',
-    UPDATE_PROJECT_FAILED = 'UPDATE_PROJECT_FAILED',
     DELETE_PROJECT = 'DELETE_PROJECT',
     DELETE_PROJECT_SUCCESS = 'DELETE_PROJECT_SUCCESS',
     DELETE_PROJECT_FAILED = 'DELETE_PROJECT_FAILED',
-    BACKUP_PROJECT = 'BACKUP_PROJECT',
-    BACKUP_PROJECT_SUCCESS = 'BACKUP_PROJECT_SUCCESS',
-    BACKUP_PROJECT_FAILED = 'BACKUP_PROJECT_FAILED',
-    RESTORE_PROJECT = 'IMPORT_PROJECT',
-    RESTORE_PROJECT_SUCCESS = 'IMPORT_PROJECT_SUCCESS',
-    RESTORE_PROJECT_FAILED = 'IMPORT_PROJECT_FAILED',
+    GET_PROJECT_PREVIEW = 'GET_PROJECT_PREVIEW',
+    GET_PROJECT_PREVIEW_SUCCESS = 'GET_PROJECT_PREVIEW_SUCCESS',
+    GET_PROJECT_PREVIEW_FAILED = 'GET_PROJECT_PREVIEW_FAILED',
 }
 
 // prettier-ignore
 const projectActions = {
     getProjects: () => createAction(ProjectsActionTypes.GET_PROJECTS),
-    getProjectsSuccess: (array: any[], previews: string[], count: number) => (
-        createAction(ProjectsActionTypes.GET_PROJECTS_SUCCESS, { array, previews, count })
+    getProjectsSuccess: (array: any[], count: number) => (
+        createAction(ProjectsActionTypes.GET_PROJECTS_SUCCESS, { array, count })
     ),
     getProjectsFailed: (error: any) => createAction(ProjectsActionTypes.GET_PROJECTS_FAILED, { error }),
     updateProjectsGettingQuery: (query: Partial<ProjectsQuery>, tasksQuery: Partial<TasksQuery> = {}) => (
@@ -51,11 +47,6 @@ const projectActions = {
         createAction(ProjectsActionTypes.CREATE_PROJECT_SUCCESS, { projectId })
     ),
     createProjectFailed: (error: any) => createAction(ProjectsActionTypes.CREATE_PROJECT_FAILED, { error }),
-    updateProject: () => createAction(ProjectsActionTypes.UPDATE_PROJECT),
-    updateProjectSuccess: (project: any) => createAction(ProjectsActionTypes.UPDATE_PROJECT_SUCCESS, { project }),
-    updateProjectFailed: (project: any, error: any) => (
-        createAction(ProjectsActionTypes.UPDATE_PROJECT_FAILED, { project, error })
-    ),
     deleteProject: (projectId: number) => createAction(ProjectsActionTypes.DELETE_PROJECT, { projectId }),
     deleteProjectSuccess: (projectId: number) => (
         createAction(ProjectsActionTypes.DELETE_PROJECT_SUCCESS, { projectId })
@@ -63,19 +54,14 @@ const projectActions = {
     deleteProjectFailed: (projectId: number, error: any) => (
         createAction(ProjectsActionTypes.DELETE_PROJECT_FAILED, { projectId, error })
     ),
-    backupProject: (projectId: number) => createAction(ProjectsActionTypes.BACKUP_PROJECT, { projectId }),
-    backupProjectSuccess: (projectID: number) => (
-        createAction(ProjectsActionTypes.BACKUP_PROJECT_SUCCESS, { projectID })
+    getProjectPreview: (projectID: number) => (
+        createAction(ProjectsActionTypes.GET_PROJECT_PREVIEW, { projectID })
     ),
-    backupProjectFailed: (projectID: number, error: any) => (
-        createAction(ProjectsActionTypes.BACKUP_PROJECT_FAILED, { projectId: projectID, error })
+    getProjectPreviewSuccess: (projectID: number, preview: string) => (
+        createAction(ProjectsActionTypes.GET_PROJECT_PREVIEW_SUCCESS, { projectID, preview })
     ),
-    restoreProject: () => createAction(ProjectsActionTypes.RESTORE_PROJECT),
-    restoreProjectSuccess: (projectID: number) => (
-        createAction(ProjectsActionTypes.RESTORE_PROJECT_SUCCESS, { projectID })
-    ),
-    restoreProjectFailed: (error: any) => (
-        createAction(ProjectsActionTypes.RESTORE_PROJECT_FAILED, { error })
+    getProjectPreviewFailed: (projectID: number, error: any) => (
+        createAction(ProjectsActionTypes.GET_PROJECT_PREVIEW_FAILED, { projectID, error })
     ),
 };
 
@@ -106,17 +92,10 @@ export function getProjectsAsync(
         dispatch(projectActions.updateProjectsGettingQuery(query, tasksQuery));
 
         // Clear query object from null fields
-        const filteredQuery: Partial<ProjectsQuery> = {
+        const filteredQuery: Partial<ProjectsQuery> = filterNull({
             page: 1,
             ...query,
-        };
-
-        for (const key of Object.keys(filteredQuery)) {
-            const value = (filteredQuery as Indexable)[key];
-            if (value === null || typeof value === 'undefined') {
-                delete (filteredQuery as Indexable)[key];
-            }
-        }
+        });
 
         let result = null;
         try {
@@ -128,10 +107,9 @@ export function getProjectsAsync(
 
         const array = Array.from(result);
 
-        const previewPromises = array.map((project): string => (project as any).preview().catch(() => ''));
-        dispatch(projectActions.getProjectsSuccess(array, await Promise.all(previewPromises), result.count));
+        dispatch(projectActions.getProjectsSuccess(array, result.count));
 
-        // Appropriate tasks fetching proccess needs with retrieving only a single project
+        // Appropriate tasks fetching process needs with retrieving only a single project
         if (Object.keys(filteredQuery).includes('id') && typeof filteredQuery.id === 'number') {
             dispatch(getProjectTasksAsync({
                 ...tasksQuery,
@@ -149,30 +127,10 @@ export function createProjectAsync(data: any): ThunkAction {
         try {
             const savedProject = await projectInstance.save();
             dispatch(projectActions.createProjectSuccess(savedProject.id));
+            return savedProject;
         } catch (error) {
             dispatch(projectActions.createProjectFailed(error));
-        }
-    };
-}
-
-export function updateProjectAsync(projectInstance: any): ThunkAction {
-    return async (dispatch, getState): Promise<void> => {
-        try {
-            const state = getState();
-            dispatch(projectActions.updateProject());
-            await projectInstance.save();
-            const [project] = await cvat.projects.get({ id: projectInstance.id });
-            dispatch(projectActions.updateProjectSuccess(project));
-            dispatch(getProjectTasksAsync(state.projects.tasksGettingQuery));
-        } catch (error) {
-            let project = null;
-            try {
-                [project] = await cvat.projects.get({ id: projectInstance.id });
-            } catch (fetchError) {
-                dispatch(projectActions.updateProjectFailed(projectInstance, error));
-                return;
-            }
-            dispatch(projectActions.updateProjectFailed(project, error));
+            throw error;
         }
     };
 }
@@ -189,30 +147,12 @@ export function deleteProjectAsync(projectInstance: any): ThunkAction {
     };
 }
 
-export function restoreProjectAsync(file: File): ThunkAction {
-    return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
-        dispatch(projectActions.restoreProject());
-        try {
-            const projectInstance = await cvat.classes.Project.restore(file);
-            dispatch(projectActions.restoreProjectSuccess(projectInstance));
-        } catch (error) {
-            dispatch(projectActions.restoreProjectFailed(error));
-        }
-    };
-}
-
-export function backupProjectAsync(projectInstance: any): ThunkAction {
-    return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
-        dispatch(projectActions.backupProject(projectInstance.id));
-
-        try {
-            const url = await projectInstance.backup();
-            const downloadAnchor = window.document.getElementById('downloadAnchor') as HTMLAnchorElement;
-            downloadAnchor.href = url;
-            downloadAnchor.click();
-            dispatch(projectActions.backupProjectSuccess(projectInstance.id));
-        } catch (error) {
-            dispatch(projectActions.backupProjectFailed(projectInstance.id, error));
-        }
-    };
-}
+export const getProjectsPreviewAsync = (project: any): ThunkAction => async (dispatch) => {
+    dispatch(projectActions.getProjectPreview(project.id));
+    try {
+        const result = await project.preview();
+        dispatch(projectActions.getProjectPreviewSuccess(project.id, result));
+    } catch (error) {
+        dispatch(projectActions.getProjectPreviewFailed(project.id, error));
+    }
+};

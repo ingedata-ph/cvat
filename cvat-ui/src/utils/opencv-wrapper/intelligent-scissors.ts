@@ -1,4 +1,4 @@
-// Copyright (C) 2021 Intel Corporation
+// Copyright (C) 2021-2022 Intel Corporation
 //
 // SPDX-License-Identifier: MIT
 
@@ -19,6 +19,7 @@ export interface IntelligentScissorsParams {
 }
 
 export interface IntelligentScissors {
+    kind: string;
     reset(): void;
     run(points: number[], image: ImageData, offsetX: number, offsetY: number): number[];
     params: IntelligentScissorsParams;
@@ -35,6 +36,7 @@ function applyOffset(points: Point[], offsetX: number, offsetY: number): Point[]
 }
 
 export default class IntelligentScissorsImplementation implements IntelligentScissors {
+    public kind = 'opencv_intelligent_scissors';
     private cv: any;
     private onChangeToolsBlockerState: (event:string)=>void;
     private scissors: {

@@ -1,7 +1,7 @@
 ---
 title: 'XML annotation format'
 linkTitle: 'XML annotation format'
-weight: 21
+weight: 22
 ---
 
 <!--lint disable heading-style-->
@@ -19,6 +19,8 @@ There are two different formats for images and video tasks at the moment.
 The both formats have a common part which is described below. From the previous version `flipped` tag was added.
 Also `original_size` tag was added for interpolation mode to specify frame size.
 In annotation mode each image tag has `width` and `height` attributes for the same purpose.
+
+For what is `rle`, see [Run-length encoding](https://en.wikipedia.org/wiki/Run-length_encoding)
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -38,6 +40,7 @@ In annotation mode each image tag has `width` and `height` attributes for the sa
       <labels>
         <label>
           <name>String: name of the label (e.g. car, person)</name>
+          <type>String: any, bbox, cuboid, cuboid_3d, ellipse, mask, polygon, polyline, points, skeleton, tag</type>
           <attributes>
             <attribute>
               <name>String: attribute name</name>
@@ -49,6 +52,8 @@ ex. value 2
 ex. value 3</values>
             </attribute>
           </attributes>
+          <svg>String: label representation in svg, only for skeletons</svg>
+          <parent>String: label parent name, only for skeletons</parent>
         </label>
       </labels>
       <segments>
@@ -81,7 +86,10 @@ On each image it is possible to have many different objects. Each object can hav
 If an annotation task is created with `z_order` flag then each object will have `z_order` attribute which is used
 to draw objects properly when they are intersected (if `z_order` is bigger the object is closer to camera).
 In previous versions of the format only `box` shape was available.
-In later releases `polygon`, `polyline`, `points` and `tags` were added. Please see below for more details:
+In later releases `mask`, `polygon`, `polyline`, `points`, `skeletons` and `tags` were added.
+Please see below for more details:
+
+
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -117,6 +125,16 @@ In later releases `polygon`, `polyline`, `points` and `tags` were added. Please 
       <attribute name="String: an attribute name">String: the attribute value</attribute>
       ...
     </tag>
+    <skeleton label="String: the associated label" z_order="Number: z-order of the object">
+      <points label="String: the associated label" occluded="Number: 0 - False, 1 - True" outside="Number: 0 - False, 1 - True" points="x0,y0;x1,y1">
+        <attribute name="String: an attribute name">String: the attribute value</attribute>
+      </points>
+      ...
+      <attribute name="String: an attribute name">String: the attribute value</attribute>
+      ...
+    </skeleton>
+    <mask label="String: the associated label" source="manual or auto" occluded="Number: 0 - False, 1 - True" rle="RLE mask" left="Number: left coordinate of the image where the mask begins" top="Number: top coordinate of the image where the mask begins" width="Number: width of the mask" height="Number: height of the mask" z_order="Number: z-order of the object">
+    </mask>
     ...
   </image>
   ...
@@ -161,6 +179,34 @@ Example:
           <attributes>
           </attributes>
         </label>
+        <label>
+          <name>s1</name>
+          <type>skeleton</type>
+          <attributes>
+          </attributes>
+          <svg>&lt;line x1="36.87290954589844" y1="47.732025146484375" x2="86.87290954589844" y2="10.775501251220703" stroke="black" data-type="edge" data-node-from="2" stroke-width="0.5" data-node-to="3"&gt;&lt;/line&gt;&lt;line x1="25.167224884033203" y1="22.64841079711914" x2="36.87290954589844" y2="47.732025146484375" stroke="black" data-type="edge" data-node-from="1" stroke-width="0.5" data-node-to="2"&gt;&lt;/line&gt;&lt;circle r="1.5" stroke="black" fill="#b3b3b3" cx="25.167224884033203" cy="22.64841079711914" stroke-width="0.1" data-type="element node" data-element-id="1" data-node-id="1" data-label-name="1"&gt;&lt;/circle&gt;&lt;circle r="1.5" stroke="black" fill="#b3b3b3" cx="36.87290954589844" cy="47.732025146484375" stroke-width="0.1" data-type="element node" data-element-id="2" data-node-id="2" data-label-name="2"&gt;&lt;/circle&gt;&lt;circle r="1.5" stroke="black" fill="#b3b3b3" cx="86.87290954589844" cy="10.775501251220703" stroke-width="0.1" data-type="element node" data-element-id="3" data-node-id="3" data-label-name="3"&gt;&lt;/circle&gt;</svg>
+        </label>
+        <label>
+          <name>1</name>
+          <type>points</type>
+          <attributes>
+          </attributes>
+          <parent>s1</parent>
+        </label>
+        <label>
+          <name>2</name>
+          <type>points</type>
+          <attributes>
+          </attributes>
+          <parent>s1</parent>
+        </label>
+        <label>
+          <name>3</name>
+          <type>points</type>
+          <attributes>
+          </attributes>
+          <parent>s1</parent>
+        </label>
       </labels>
       <segments>
         <segment>
@@ -190,6 +236,16 @@ Example:
     </points>
     <tag label="good_frame" source="manual">
     </tag>
+    <skeleton label="s1" source="manual" z_order="0">
+      <points label="1" occluded="0" source="manual" outside="0" points="54.47,94.81">
+      </points>
+      <points label="2" occluded="0" source="manual" outside="0" points="68.02,162.34">
+      </points>
+      <points label="3" occluded="0" source="manual" outside="0" points="125.87,62.85">
+      </points>
+    </skeleton>
+    <mask label="car" source="manual" occluded="0" rle="3, 5, 7, 7, 5, 9, 3, 11, 2, 11, 2, 12, 1, 12, 1, 26, 1, 12, 1, 12, 2, 11, 3, 9, 5, 7, 7, 5, 3" left="707" top="888" width="13" height="15" z_order="0">
+    </mask>
   </image>
 </annotations>
 ```
@@ -206,7 +262,7 @@ cloned for each location (a known redundancy).
 <?xml version="1.0" encoding="utf-8"?>
 <annotations>
   ...
-  <track id="Number: id of the track (doesn't have any special meeting" label="String: the associated label" source="manual or auto">
+  <track id="Number: id of the track (doesn't have any special meeting)" label="String: the associated label" source="manual or auto">
     <box frame="Number: frame" xtl="Number: float" ytl="Number: float" xbr="Number: float" ybr="Number: float" outside="Number: 0 - False, 1 - True" occluded="Number: 0 - False, 1 - True" keyframe="Number: 0 - False, 1 - True">
       <attribute name="String: an attribute name">String: the attribute value</attribute>
       ...
@@ -220,6 +276,16 @@ cloned for each location (a known redundancy).
     <points frame="Number: frame" points="x0,y0;x1,y1;..." outside="Number: 0 - False, 1 - True" occluded="Number: 0 - False, 1 - True" keyframe="Number: 0 - False, 1 - True">
       <attribute name="String: an attribute name">String: the attribute value</attribute>
     </points>
+    <mask frame="Number: frame" outside="Number: 0 - False, 1 - True" occluded="Number: 0 - False, 1 - True" rle="RLE mask" left="Number: left coordinate of the image where the mask begins" top="Number: top coordinate of the image where the mask begins" width="Number: width of the mask" height="Number: height of the mask" z_order="Number: z-order of the object">
+    </mask>
+    ...
+  </track>
+  <track id="Number: id of the track (doesn't have any special meeting)" label="String: the associated label" source="manual or auto">
+    <skeleton frame="Number: frame" keyframe="Number: 0 - False, 1 - True">
+      <points label="String: the associated label" outside="Number: 0 - False, 1 - True" occluded="Number: 0 - False, 1 - True" keyframe="Number: 0 - False, 1 - True" points="x0,y0;x1,y1">
+      </points>
+      ...
+    </skeleton>
     ...
   </track>
   ...
@@ -254,6 +320,34 @@ Example:
           <attributes>
           </attributes>
         </label>
+        <label>
+          <name>s1</name>
+          <type>skeleton</type>
+          <attributes>
+          </attributes>
+          <svg>&lt;line x1="36.87290954589844" y1="47.732025146484375" x2="86.87290954589844" y2="10.775501251220703" stroke="black" data-type="edge" data-node-from="2" stroke-width="0.5" data-node-to="3"&gt;&lt;/line&gt;&lt;line x1="25.167224884033203" y1="22.64841079711914" x2="36.87290954589844" y2="47.732025146484375" stroke="black" data-type="edge" data-node-from="1" stroke-width="0.5" data-node-to="2"&gt;&lt;/line&gt;&lt;circle r="1.5" stroke="black" fill="#b3b3b3" cx="25.167224884033203" cy="22.64841079711914" stroke-width="0.1" data-type="element node" data-element-id="1" data-node-id="1" data-label-name="1"&gt;&lt;/circle&gt;&lt;circle r="1.5" stroke="black" fill="#b3b3b3" cx="36.87290954589844" cy="47.732025146484375" stroke-width="0.1" data-type="element node" data-element-id="2" data-node-id="2" data-label-name="2"&gt;&lt;/circle&gt;&lt;circle r="1.5" stroke="black" fill="#b3b3b3" cx="86.87290954589844" cy="10.775501251220703" stroke-width="0.1" data-type="element node" data-element-id="3" data-node-id="3" data-label-name="3"&gt;&lt;/circle&gt;</svg>
+        </label>
+        <label>
+          <name>1</name>
+          <type>points</type>
+          <attributes>
+          </attributes>
+          <parent>s1</parent>
+        </label>
+        <label>
+          <name>2</name>
+          <type>points</type>
+          <attributes>
+          </attributes>
+          <parent>s1</parent>
+        </label>
+        <label>
+          <name>3</name>
+          <type>points</type>
+          <attributes>
+          </attributes>
+          <parent>s1</parent>
+        </label>
       </labels>
       <segments>
         <segment>
@@ -287,6 +381,56 @@ Example:
     </polygon>
     <polygon frame="14" points="313.74,233.16;331.11,220.00;359.53,243.16;333.21,283.16;287.95,274.74" outside="1" occluded="0" keyframe="1">
     </polygon>
+  </track>
+  <track id="1" label="s1" source="manual">
+    <skeleton frame="0" keyframe="1" z_order="0">
+      <points label="1" outside="0" occluded="0" keyframe="1" points="112.07,258.59">
+      </points>
+      <points label="2" outside="0" occluded="0" keyframe="1" points="127.87,333.23">
+      </points>
+      <points label="3" outside="0" occluded="0" keyframe="1" points="195.37,223.27">
+      </points>
+    </skeleton>
+    <skeleton frame="1" keyframe="1" z_order="0">
+      <points label="1" outside="1" occluded="0" keyframe="1" points="112.07,258.59">
+      </points>
+      <points label="2" outside="1" occluded="0" keyframe="1" points="127.87,333.23">
+      </points>
+      <points label="3" outside="1" occluded="0" keyframe="1" points="195.37,223.27">
+      </points>
+    </skeleton>
+    <skeleton frame="6" keyframe="1" z_order="0">
+      <points label="1" outside="0" occluded="0" keyframe="0" points="120.07,270.59">
+      </points>
+      <points label="2" outside="0" occluded="0" keyframe="0" points="140.87,350.23">
+      </points>
+      <points label="3" outside="0" occluded="0" keyframe="0" points="210.37,260.27">
+      </points>
+    </skeleton>
+    <skeleton frame="7" keyframe="1" z_order="0">
+      <points label="1" outside="1" occluded="0" keyframe="1" points="120.07,270.59">
+      </points>
+      <points label="2" outside="1" occluded="0" keyframe="1" points="140.87,350.23">
+      </points>
+      <points label="3" outside="1" occluded="0" keyframe="1" points="210.37,260.27">
+      </points>
+    </skeleton>
+    <skeleton frame="13" keyframe="0" z_order="0">
+      <points label="1" outside="0" occluded="0" keyframe="0" points="112.07,258.59">
+      </points>
+      <points label="2" outside="0" occluded="0" keyframe="0" points="127.87,333.23">
+      </points>
+      <points label="3" outside="0" occluded="0" keyframe="0" points="195.37,223.27">
+      </points>
+    </skeleton>
+    <skeleton frame="14" keyframe="1" z_order="0">
+      <points label="1" outside="1" occluded="0" keyframe="1" points="112.07,258.59">
+      </points>
+      <points label="2" outside="1" occluded="0" keyframe="1" points="127.87,333.23">
+      </points>
+      <points label="3" outside="1" occluded="0" keyframe="1" points="195.37,223.27">
+      </points>
+    </skeleton>
   </track>
 </annotations>
 ```

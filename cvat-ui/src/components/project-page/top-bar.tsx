@@ -10,7 +10,7 @@ import Button from 'antd/lib/button';
 import Dropdown from 'antd/lib/dropdown';
 import Text from 'antd/lib/typography/Text';
 
-import { Project } from 'reducers/interfaces';
+import { Project } from 'reducers';
 import ActionsMenu from 'components/projects-page/actions-menu';
 
 interface DetailsComponentProps {
@@ -25,7 +25,12 @@ export default function ProjectTopBar(props: DetailsComponentProps): JSX.Element
     return (
         <Row className='cvat-task-top-bar' justify='space-between' align='middle'>
             <Col>
-                <Button onClick={() => history.push('/projects')} type='link' size='large'>
+                <Button
+                    className='cvat-back-to-projects-button'
+                    onClick={() => history.push('/projects')}
+                    type='link'
+                    size='large'
+                >
                     <LeftOutlined />
                     Back to projects
                 </Button>

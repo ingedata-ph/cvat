@@ -1,4 +1,5 @@
 // Copyright (C) 2021-2022 Intel Corporation
+// Copyright (C) 2022-2023 CVAT.ai Corporation
 //
 // SPDX-License-Identifier: MIT
 
@@ -7,17 +8,21 @@ import { useDispatch } from 'react-redux';
 import moment from 'moment';
 import { Row, Col } from 'antd/lib/grid';
 import Text from 'antd/lib/typography/Text';
+import Paragraph from 'antd/lib/typography/Paragraph';
 import Modal from 'antd/lib/modal';
 import Button from 'antd/lib/button';
 import Space from 'antd/lib/space';
 import Input from 'antd/lib/input';
 import Form from 'antd/lib/form';
 import Select from 'antd/lib/select';
+import Dropdown from 'antd/lib/dropdown';
+import Menu from 'antd/lib/menu';
 import { useForm } from 'antd/lib/form/Form';
 import { Store } from 'antd/lib/form/interface';
+
 import {
     EditTwoTone, EnvironmentOutlined,
-    MailOutlined, PhoneOutlined, PlusCircleOutlined, DeleteOutlined,
+    MailOutlined, PhoneOutlined, PlusCircleOutlined, DeleteOutlined, MoreOutlined,
 } from '@ant-design/icons';
 
 import {
@@ -26,11 +31,17 @@ import {
     removeOrganizationAsync,
     updateOrganizationAsync,
 } from 'actions/organization-actions';
+import { useHistory } from 'react-router-dom';
 
 export interface Props {
     organizationInstance: any;
     userInstance: any;
     fetchMembers: () => void;
+}
+
+export enum MenuActions {
+    SET_WEBHOOKS = 'SET_WEBHOOKS',
+    REMOVE_ORGANIZATION = 'REMOVE_ORGANIZATION',
 }
 
 function OrganizationTopBar(props: Props): JSX.Element {
@@ -59,17 +70,92 @@ function OrganizationTopBar(props: Props): JSX.Element {
         };
     });
 
+    const onRemove = (): void => {
+        const modal = Modal.confirm({
+            onOk: () => {
+                dispatch(removeOrganizationAsync(organizationInstance));
+            },
+            content: (
+                <div className='cvat-remove-organization-submit'>
+                    <Text type='warning'>
+                        To remove the organization,
+                        enter its short name below
+                    </Text>
+                    <Input
+                        onChange={
+                            (event: React.ChangeEvent<HTMLInputElement>) => {
+                                modal.update({
+                                    okButtonProps: {
+                                        disabled: event.target.value !== organizationInstance.slug,
+                                        danger: true,
+                                    },
+                                });
+                            }
+                        }
+                    />
+                </div>
+            ),
+            okButtonProps: {
+                disabled: true,
+                danger: true,
+            },
+            okText: 'Remove',
+        });
+    };
+
     let organizationName = name;
     let organizationDescription = description;
     let organizationContacts = contact;
+    const history = useHistory();
+
     return (
         <>
             <Row justify='space-between'>
                 <Col span={24}>
                     <div className='cvat-organization-top-bar-descriptions'>
-                        <Text>
-                            <Text className='cvat-title'>{`Organization: ${slug} `}</Text>
-                        </Text>
+                        <Row justify='space-between'>
+                            <Col>
+                                <Text>
+                                    <Text className='cvat-title'>{`Organization: ${slug} `}</Text>
+                                </Text>
+                            </Col>
+                            <Col>
+                                <Dropdown overlay={() => (
+                                    <Menu className='cvat-organization-actions-menu'>
+                                        <Menu.Item key={MenuActions.SET_WEBHOOKS}>
+                                            <a
+                                                href='/organization/webhooks'
+                                                onClick={(e: React.MouseEvent) => {
+                                                    e.preventDefault();
+                                                    history.push({
+                                                        pathname: '/organization/webhooks',
+                                                    });
+                                                    return false;
+                                                }}
+                                            >
+                                                Setup webhooks
+                                            </a>
+                                        </Menu.Item>
+                                        {owner && userID === owner.id ? (
+                                            <Menu.Item
+                                                key={MenuActions.REMOVE_ORGANIZATION}
+                                                onClick={onRemove}
+                                            >
+                                                Remove organization
+                                            </Menu.Item>
+                                        ) : null}
+                                    </Menu>
+                                )}
+                                >
+                                    <Button size='middle' className='cvat-organization-page-actions-button'>
+                                        <Text className='cvat-text-color'>Actions</Text>
+                                        <MoreOutlined className='cvat-menu-icon' />
+                                    </Button>
+                                </Dropdown>
+                            </Col>
+
+                        </Row>
+
                         <Text
                             editable={{
                                 onChange: (value: string) => {
@@ -102,6 +188,7 @@ function OrganizationTopBar(props: Props): JSX.Element {
                                     }}
                                 />
                                 <Button
+                                    className='cvat-submit-new-org-description-button'
                                     size='small'
                                     type='primary'
                                     onClick={() => {
@@ -188,6 +275,7 @@ function OrganizationTopBar(props: Props): JSX.Element {
                     <Space align='end'>
                         {!(owner && userID === owner.id) ? (
                             <Button
+                                className='cvat-leave-org-button'
                                 type='primary'
                                 danger
                                 onClick={() => {
@@ -213,45 +301,8 @@ function OrganizationTopBar(props: Props): JSX.Element {
                                 Leave organization
                             </Button>
                         ) : null}
-                        {owner && userID === owner.id ? (
-                            <Button
-                                type='primary'
-                                danger
-                                onClick={() => {
-                                    const modal = Modal.confirm({
-                                        onOk: () => {
-                                            dispatch(removeOrganizationAsync(organizationInstance));
-                                        },
-                                        content: (
-                                            <div className='cvat-remove-organization-submit'>
-                                                <Text type='warning'>
-                                                    To remove the organization, enter its short name below
-                                                </Text>
-                                                <Input
-                                                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                                                        modal.update({
-                                                            okButtonProps: {
-                                                                disabled:
-                                                                    event.target.value !== organizationInstance.slug,
-                                                                danger: true,
-                                                            },
-                                                        });
-                                                    }}
-                                                />
-                                            </div>
-                                        ),
-                                        okButtonProps: {
-                                            disabled: true,
-                                            danger: true,
-                                        },
-                                        okText: 'Remove',
-                                    });
-                                }}
-                            >
-                                Remove organization
-                            </Button>
-                        ) : null}
                         <Button
+                            className='cvat-invite-org-members-button'
                             type='primary'
                             onClick={() => setVisibleInviteModal(true)}
                             icon={<PlusCircleOutlined />}
@@ -289,7 +340,14 @@ function OrganizationTopBar(props: Props): JSX.Element {
                     layout='vertical'
                     form={form}
                 >
-                    <Text>Invitation list: </Text>
+                    <Paragraph>
+                        <Text>Invite CVAT users to collaborate </Text>
+                    </Paragraph>
+                    <Paragraph>
+                        <Text type='secondary'>
+                            If the email address is registered on CVAT, the user will be added to the organization
+                        </Text>
+                    </Paragraph>
                     <Form.List name='users'>
                         {(fields, { add, remove }) => (
                             <>
@@ -332,7 +390,7 @@ function OrganizationTopBar(props: Props): JSX.Element {
                                     </Row>
                                 ))}
                                 <Form.Item>
-                                    <Button icon={<PlusCircleOutlined />} onClick={() => add()}>
+                                    <Button className='cvat-invite-more-org-members-button' icon={<PlusCircleOutlined />} onClick={() => add()}>
                                         Invite more
                                     </Button>
                                 </Form.Item>

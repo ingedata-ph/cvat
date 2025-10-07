@@ -1,17 +1,16 @@
-// Copyright (C) 2021 Intel Corporation
+// Copyright (C) 2021-2022 Intel Corporation
 //
 // SPDX-License-Identifier: MIT
 
+import _ from 'lodash';
 import { AuthActions, AuthActionTypes } from 'actions/auth-actions';
 import { OrganizationActions, OrganizationActionsTypes } from 'actions/organization-actions';
-import { OrganizationState } from './interfaces';
+import { OrganizationState } from '.';
 
 const defaultState: OrganizationState = {
     list: [],
-    current: null,
     initialized: false,
     fetching: false,
-    creating: false,
     updating: false,
     inviting: false,
     leaving: false,
@@ -46,7 +45,6 @@ export default function (
         case OrganizationActionsTypes.ACTIVATE_ORGANIZATION_SUCCESS: {
             return {
                 ...state,
-                fetching: false,
                 current: action.payload.organization,
             };
         }
@@ -56,23 +54,10 @@ export default function (
                 fetching: false,
             };
         }
-        case OrganizationActionsTypes.CREATE_ORGANIZATION: {
-            return {
-                ...state,
-                creating: true,
-            };
-        }
         case OrganizationActionsTypes.CREATE_ORGANIZATION_SUCCESS: {
             return {
                 ...state,
                 list: [...state.list, action.payload.organization],
-                creating: false,
-            };
-        }
-        case OrganizationActionsTypes.CREATE_ORGANIZATION_FAILED: {
-            return {
-                ...state,
-                creating: false,
             };
         }
         case OrganizationActionsTypes.UPDATE_ORGANIZATION: {
@@ -103,12 +88,12 @@ export default function (
             };
         }
         case OrganizationActionsTypes.REMOVE_ORGANIZATION_SUCCESS: {
-            return {
+            const updatedState = {
                 ...state,
-                current: null,
                 list: state.list.filter((org: any) => org.slug !== action.payload.slug),
                 fetching: false,
             };
+            return _.omit(updatedState, 'current');
         }
         case OrganizationActionsTypes.REMOVE_ORGANIZATION_FAILED: {
             return {

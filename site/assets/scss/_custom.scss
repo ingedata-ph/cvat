@@ -1,4 +1,4 @@
-// Copyright (C) 2021 Intel Corporation
+// Copyright (C) 2021-2022 Intel Corporation
 //
 // SPDX-License-Identifier: MIT
 
@@ -35,6 +35,10 @@ li > details {
 details > summary > .code-toolbar,
 details > .code-toolbar {
     max-width: 100%;
+}
+
+.navbar-logo {
+    fill: white;
 }
 
 /* Increased left padding on the sidebar of documentation */

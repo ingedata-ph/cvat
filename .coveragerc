@@ -1,10 +1,10 @@
 [run]
 branch = true
-# relative_files = true # does not work?
 
 source =
     cvat/apps/
-    utils/cli/
+    cvat-sdk/
+    cvat-cli/
     utils/dataset_manifest
 
 omit =

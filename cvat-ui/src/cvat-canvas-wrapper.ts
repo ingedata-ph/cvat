@@ -1,4 +1,4 @@
-// Copyright (C) 2020-2021 Intel Corporation
+// Copyright (C) 2020-2022 Intel Corporation
 //
 // SPDX-License-Identifier: MIT
 
@@ -10,6 +10,7 @@ import {
     CuboidDrawingMethod,
     InteractionData as _InteractionData,
     InteractionResult as _InteractionResult,
+    HighlightSeverity as _HighlightSeverity,
 } from 'cvat-canvas/src/typescript/canvas';
 
 export function convertShapesForInteractor(shapes: InteractionResult[], button: number): number[][] {
@@ -30,6 +31,7 @@ export function convertShapesForInteractor(shapes: InteractionResult[], button: 
 
 export type InteractionData = _InteractionData;
 export type InteractionResult = _InteractionResult;
+export type HighlightSeverity = _HighlightSeverity;
 
 export {
     Canvas, CanvasMode, CanvasVersion, RectDrawingMethod, CuboidDrawingMethod,
